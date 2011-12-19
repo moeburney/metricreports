@@ -78,7 +78,7 @@ class checks:
         self.mainLogger.debug('getApacheStatus: start')
 
         if 'apacheStatusUrl' in self.botConfig and self.botConfig[
-                                                     'apacheStatusUrl'] != 'http://www.example.com/server-status/?auto':    # Don't do it if the status URL hasn't been provided
+                                                   'apacheStatusUrl'] != 'http://www.example.com/server-status/?auto':    # Don't do it if the status URL hasn't been provided
             self.mainLogger.debug('getApacheStatus: config set')
 
             try:
@@ -203,7 +203,7 @@ class checks:
     def getCouchDBStatus(self):
         self.mainLogger.debug('getCouchDBStatus: start')
 
-        if ('CouchDBServer' not in self.botConfig or self.botConfig['CouchDBServer'] == ''):
+        if 'CouchDBServer' not in self.botConfig or self.botConfig['CouchDBServer'] == '':
             self.mainLogger.debug('getCouchDBStatus: config not set')
             return False
 
@@ -477,16 +477,16 @@ class checks:
                 previousVolume = volume[0] # We store it, then continue the for
                 continue
 
-            if previousVolume != None: # If the previousVolume was set (above) during the last loop
+            if previousVolume is not None: # If the previousVolume was set (above) during the last loop
                 volume.insert(0, previousVolume) # then we need to insert it into the volume
                 previousVolume = None # then reset so we don't use it again
 
-            volumeCount = volumeCount + 1
+            volumeCount += 1
 
             # Sometimes the first column will have a space, which is usually a system line that isn't relevant
             # e.g. map -hosts              0         0          0   100%    /net
             # so we just get rid of it
-            if re.match(regexp, volume[1]) == None:
+            if re.match(regexp, volume[1]) is None:
                 pass
 
             else:
@@ -753,7 +753,7 @@ class checks:
                     # We are only interested in the KB data so regexp that out
                     match = re.search(regexp, values[1])
 
-                    if match != None:
+                    if match is not None:
                         meminfo[str(values[0])] = match.group(0)
 
                 except IndexError:
@@ -847,7 +847,7 @@ class checks:
                             for part in parts:
                                 match = re.search(regexp, part)
 
-                                if match != None:
+                                if match is not None:
                                     physFree = match.group(0)
                                     self.mainLogger.debug('getMemoryUsage: sysinfo: found free %s', physFree)
 
@@ -857,7 +857,7 @@ class checks:
                             for part in parts:
                                 match = re.search(regexp, part)
 
-                                if match != None:
+                                if match is not None:
                                     physUsed = match.group(0)
                                     self.mainLogger.debug('getMemoryUsage: sysinfo: found used %s', physUsed)
 
@@ -867,7 +867,7 @@ class checks:
                             for part in parts:
                                 match = re.search(regexp, part)
 
-                                if match != None:
+                                if match is not None:
                                     cached = match.group(0)
                                     self.mainLogger.debug('getMemoryUsage: sysinfo: found cached %s', cached)
 
@@ -885,7 +885,7 @@ class checks:
                     except Exception, e:
                         self.mainLogger.debug('Process already terminated')
 
-            if physFree == None:
+            if physFree is None:
                 self.mainLogger.info(
                     'getMemoryUsage: sysinfo not installed so falling back on sysctl. sysinfo provides more accurate memory info so is recommended. http://www.freshports.org/sysutils/sysinfo')
 
@@ -936,7 +936,7 @@ class checks:
                 # We need to loop through and capture the numerical values
                 # because sometimes there will be strings and spaces
                 for k, v in enumerate(physParts):
-                    if re.match(r'([0-9]+)', v) != None:
+                    if re.match(r'([0-9]+)', v) is not None:
                         physMem.append(v)
 
                 physTotal = int(physTotal.strip()) / 1024 # physFree is returned in B, but we need KB so we convert it
@@ -1206,7 +1206,7 @@ class checks:
 
             # Per second metric calculations (opcounts and asserts)
             try:
-                if self.mongoDBStore == None:
+                if self.mongoDBStore is None:
                     self.mainLogger.debug(
                         'getMongoDBStatus: per second metrics no cached data, so storing for first time')
                     self.setMongoDBStore(statusOutput)
@@ -1319,8 +1319,7 @@ class checks:
                     # Calculation is from http://docs.python.org/library/datetime.html#datetime.timedelta.total_seconds
                     if 'optimeDate' in member: # Only available as of 1.7.2
                         deltaOptime = datetime.datetime.utcnow() - member['optimeDate']
-                        status['replSet']['members'][str(member['_id'])]['optimeDate'] = (deltaOptime.microseconds + (
-                                                                                                                     deltaOptime.seconds + deltaOptime.days * 24 * 3600) * 10 ** 6) / 10 ** 6
+                        status['replSet']['members'][str(member['_id'])]['optimeDate'] = (deltaOptime.microseconds + (deltaOptime.seconds + deltaOptime.days * 24 * 3600) * 10 ** 6) / 10 ** 6
 
                     if 'self' in member:
                         status['replSet']['myId'] = member['_id']
@@ -1329,9 +1328,7 @@ class checks:
                     else:
                         if 'lastHeartbeat' in member:
                             deltaHeartbeat = datetime.datetime.utcnow() - member['lastHeartbeat']
-                            status['replSet']['members'][str(member['_id'])]['lastHeartbeat'] = (
-                                                                                                deltaHeartbeat.microseconds + (
-                                                                                                                              deltaHeartbeat.seconds + deltaHeartbeat.days * 24 * 3600) * 10 ** 6) / 10 ** 6
+                            status['replSet']['members'][str(member['_id'])]['lastHeartbeat'] = (deltaHeartbeat.microseconds + (deltaHeartbeat.seconds + deltaHeartbeat.days * 24 * 3600) * 10 ** 6) / 10 ** 6
 
                     if 'errmsg' in member:
                         status['replSet']['members'][str(member['_id'])]['error'] = member['errmsg']
@@ -1430,7 +1427,7 @@ class checks:
             self.mainLogger.debug('getMySQLStatus: connected')
 
             # Get MySQL version
-            if self.mysqlVersion == None:
+            if self.mysqlVersion is None:
                 self.mainLogger.debug('getMySQLStatus: mysqlVersion unset storing for first time')
 
                 try:
@@ -1464,7 +1461,7 @@ class checks:
             except MySQLdb.OperationalError, message:
                 self.mainLogger.error('getMySQLStatus: MySQL query error when getting Connections: ' + str(message))
 
-            if self.mysqlConnectionsStore == None:
+            if self.mysqlConnectionsStore is None:
                 self.mainLogger.debug('getMySQLStatus: mysqlConnectionsStore unset storing for first time')
 
                 self.mysqlConnectionsStore = result[1]
@@ -1564,7 +1561,7 @@ class checks:
             except MySQLdb.OperationalError, message:
                 self.mainLogger.error('getMySQLStatus: MySQL query error when getting Slow_queries: ' + str(message))
 
-            if self.mysqlSlowQueriesStore == None:
+            if self.mysqlSlowQueriesStore is None:
                 self.mainLogger.debug('getMySQLStatus: mysqlSlowQueriesStore unset so storing for first time')
 
                 self.mysqlSlowQueriesStore = result[1]
@@ -1633,7 +1630,7 @@ class checks:
                     'getMySQLStatus: MySQL query error when getting SHOW SLAVE STATUS: ' + str(message))
                 result = None
 
-            if result != None:
+            if result is not None:
                 try:
                     secondsBehindMaster = result['Seconds_Behind_Master']
 
@@ -1786,7 +1783,7 @@ class checks:
                 line = re.split(r'\s+', line)
 
                 # Figure out which index we need
-                if rxKey == None and txKey == None:
+                if rxKey is None and txKey is None:
                     for k, part in enumerate(line):
                         self.mainLogger.debug('getNetworkTraffic: looping parts (%s)', part)
 
@@ -1864,7 +1861,7 @@ class checks:
         self.mainLogger.debug('getNginxStatus: start')
 
         if 'nginxStatusUrl' in self.botConfig and self.botConfig[
-                                                    'nginxStatusUrl'] != 'http://www.example.com/nginx_status':    # Don't do it if the status URL hasn't been provided
+                                                  'nginxStatusUrl'] != 'http://www.example.com/nginx_status':    # Don't do it if the status URL hasn't been provided
             self.mainLogger.debug('getNginxStatus: config set')
 
             try:
@@ -1928,7 +1925,7 @@ class checks:
 
                 self.mainLogger.debug('getNginxStatus: parsed reqs')
 
-                if self.nginxRequestsStore == None or self.nginxRequestsStore < 0:
+                if self.nginxRequestsStore is None or self.nginxRequestsStore < 0:
                     self.mainLogger.debug('getNginxStatus: no reqs so storing for first time')
 
                     self.nginxRequestsStore = requests
@@ -1946,7 +1943,7 @@ class checks:
 
                     self.nginxRequestsStore = requests
 
-                if connections != None and requestsPerSecond != None:
+                if connections is not None and requestsPerSecond is not None:
                     self.mainLogger.debug('getNginxStatus: returning with data')
 
                     return {'connections': connections, 'reqPerSec': requestsPerSecond}
@@ -2172,7 +2169,7 @@ class checks:
         self.mainLogger.debug('getPlugins: start')
 
         if 'pluginDirectory' in self.botConfig and self.botConfig['pluginDirectory'] != '':
-            if os.access(self.botConfig['pluginDirectory'], os.R_OK) == False:
+            if not os.access(self.botConfig['pluginDirectory'], os.R_OK) :
                 self.mainLogger.warning('getPlugins: Plugin path %s is set but not readable by bot. Skipping plugins.'
                     , self.botConfig['pluginDirectory'])
 
@@ -2183,7 +2180,7 @@ class checks:
 
         # Have we already imported the plugins?
         # Only load the plugins once
-        if self.plugins == None:
+        if self.plugins is None:
             self.mainLogger.debug('getPlugins: initial load from ' + self.botConfig['pluginDirectory'])
 
             sys.path.append(self.botConfig['pluginDirectory'])
@@ -2214,7 +2211,7 @@ class checks:
 
                 pluginPath = os.path.join(self.botConfig['pluginDirectory'], '%s.py' % pluginName)
 
-                if os.access(pluginPath, os.R_OK) == False:
+                if not os.access(pluginPath, os.R_OK) :
                     self.mainLogger.error('getPlugins: Unable to read %s so skipping this plugin.', pluginPath)
                     continue
 
@@ -2250,7 +2247,7 @@ class checks:
                     self.mainLogger.error('getPlugins (' + pluginName + '): exception = ' + traceback.format_exc())
 
         # Now execute the objects previously created
-        if self.plugins != None:
+        if self.plugins is not None:
             self.mainLogger.debug('getPlugins: executing plugins')
 
             # Execute the plugins
@@ -2279,9 +2276,9 @@ class checks:
 
             return False
 
-        #
-        # Postback
-        #
+            #
+            # Postback
+            #
 
     def doPostBack(self, postBackData):
         self.mainLogger.debug('doPostBack: start')
@@ -2350,7 +2347,7 @@ class checks:
                 self.os = 'linux'
 
         # We only need to set this if we're on FreeBSD
-        if self.linuxProcFsLocation == None and self.os == 'freebsd':
+        if self.linuxProcFsLocation is None and self.os == 'freebsd':
             self.linuxProcFsLocation = self.getMountedLinuxProcFsLocation()
         else:
             self.linuxProcFsLocation = '/proc'
@@ -2389,27 +2386,27 @@ class checks:
         checksData['bot_key'] = self.botConfig['bot_key']
         checksData['botVersion'] = self.botConfig['version']
 
-        if diskUsage != False:
+        if diskUsage:
             checksData['diskUsage'] = diskUsage
 
-        if loadAvrgs != False:
+        if loadAvrgs:
             checksData['loadAvrg'] = loadAvrgs['1']
 
-        if memory != False:
+        if memory:
             checksData['memPhysUsed'] = memory['physUsed']
             checksData['memPhysFree'] = memory['physFree']
             checksData['memSwapUsed'] = memory['swapUsed']
             checksData['memSwapFree'] = memory['swapFree']
             checksData['memCached'] = memory['cached']
 
-        if networkTraffic != False:
+        if networkTraffic:
             checksData['networkTraffic'] = networkTraffic
 
-        if processes != False:
+        if processes:
             checksData['processes'] = processes
 
         # Apache Status
-        if apacheStatus != False:
+        if apacheStatus:
             if 'reqPerSec' in apacheStatus:
                 checksData['apacheReqPerSec'] = apacheStatus['reqPerSec']
 
@@ -2422,7 +2419,7 @@ class checks:
             self.mainLogger.debug('doChecks: built optional payload apacheStatus')
 
         # MySQL Status
-        if mysqlStatus != False:
+        if mysqlStatus:
             checksData['mysqlConnections'] = mysqlStatus['connections']
             checksData['mysqlCreatedTmpDiskTables'] = mysqlStatus['createdTmpDiskTables']
             checksData['mysqlMaxUsedConnections'] = mysqlStatus['maxUsedConnections']
@@ -2431,38 +2428,38 @@ class checks:
             checksData['mysqlTableLocksWaited'] = mysqlStatus['tableLocksWaited']
             checksData['mysqlThreadsConnected'] = mysqlStatus['threadsConnected']
 
-            if mysqlStatus['secondsBehindMaster'] != None:
+            if mysqlStatus['secondsBehindMaster'] is not None:
                 checksData['mysqlSecondsBehindMaster'] = mysqlStatus['secondsBehindMaster']
 
         # Nginx Status
-        if nginxStatus != False:
+        if nginxStatus:
             checksData['nginxConnections'] = nginxStatus['connections']
             checksData['nginxReqPerSec'] = nginxStatus['reqPerSec']
 
         # RabbitMQ
-        if rabbitmq != False:
+        if rabbitmq:
             checksData['rabbitMQ'] = rabbitmq
 
         # MongoDB
-        if mongodb != False:
+        if mongodb:
             checksData['mongoDB'] = mongodb
 
         # CouchDB
-        if couchdb != False:
+        if couchdb:
             checksData['couchDB'] = couchdb
 
         # Plugins
-        if plugins != False:
+        if plugins:
             checksData['plugins'] = plugins
 
-        if ioStats != False:
+        if ioStats:
             checksData['ioStats'] = ioStats
 
-        if cpuStats != False:
+        if cpuStats:
             checksData['cpuStats'] = cpuStats
 
         # Include system stats on first postback
-        if firstRun == True:
+        if firstRun:
             checksData['systemStats'] = systemStats
             self.mainLogger.debug('doChecks: built optional payload systemStats')
 
@@ -2525,7 +2522,7 @@ class checks:
             self.mainLogger.error('getMountedLinuxProcFsLocation: OS error: ' + str(e))
 
         # Linux like procfs file system is not mounted so we return False, else we return mount point location
-        if location == None:
+        if location is None:
             self.mainLogger.debug('getMountedLinuxProcFsLocation: none found so using /proc')
             return '/proc' # Can't find anything so we might as well try this
 

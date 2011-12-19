@@ -262,7 +262,7 @@ print 'Server added - ID: ' + str(serverInfo['data']['serverId'])
 print '3/4: Writing config file'
 
 configCfg = '[Main]\nsd_url: http://' + sys.argv[2] + '\nbot_key: ' + serverInfo['data'][
-                                                                        'bot_key'] + '\napache_status_url: http://www.example.com/server-status/?auto'
+                                                                      'bot_key'] + '\napache_status_url: http://www.example.com/server-status/?auto'
 
 try:
     f = open('mt-bot/config.cfg', 'w')

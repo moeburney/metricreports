@@ -29,7 +29,7 @@
 
 # Jim Washington 7 Aug 2005.
 
-from re import compile, sub, search, DOTALL
+from re import compile, DOTALL
 
 # set to true if transmission size is much more important than speed
 # only affects writing, and makes a minimal difference in output size.

@@ -23,7 +23,7 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
-botPATH="/home/rohan/src/metrics-bot/bot.py"
+botPATH="/home/rohan/src/metricreports/bot/bot.py"
 botUSER="rohan"
 PIDPATH="/var/run/mt-bot/"
 

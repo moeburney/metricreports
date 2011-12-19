@@ -8,7 +8,6 @@
 	Licensed under Simplified BSD License (see LICENSE)
 '''
 
-import logging.handlers
 import logging
 
 # General config
@@ -20,7 +19,7 @@ botConfig = {}
 botConfig['logging'] = logging.INFO
 botConfig['checkFreq'] = 60
 
-botConfig['version'] = '1.11.3'
+botConfig['version'] = '0.1'
 
 rawConfig = {}
 
@@ -57,7 +56,7 @@ try:
     else:
         configPath = path + '/config.cfg'
 
-    if os.access(configPath, os.R_OK) == False:
+    if not os.access(configPath, os.R_OK):
         print 'Unable to read the config file at ' + configPath
         print 'bot will now quit'
         sys.exit(1)
@@ -177,18 +176,18 @@ if re.match('http(s)?(\:\/\/)[a-zA-Z0-9_\-]+\.(metrics-bot.com)', botConfig['mt_
     sys.exit(1)
 
 # Check apache_status_url is not empty (case 27073)
-if 'apacheStatusUrl' in botConfig and botConfig['apacheStatusUrl'] == None:
+if 'apacheStatusUrl' in botConfig and botConfig['apacheStatusUrl'] is None:
     print 'You must provide a config value for apache_status_url. If you do not wish to use Apache monitoring, leave it as its default value - http://www.example.com/server-status/?auto'
     print 'bot will now quit'
     sys.exit(1)
 
-if 'nginxStatusUrl' in botConfig and botConfig['nginxStatusUrl'] == None:
+if 'nginxStatusUrl' in botConfig and botConfig['nginxStatusUrl'] is None:
     print 'You must provide a config value for nginx_status_url. If you do not wish to use Nginx monitoring, leave it as its default value - http://www.example.com/nginx_status'
     print 'bot will now quit'
     sys.exit(1)
 
 if 'MySQLServer' in botConfig and botConfig['MySQLServer'] != '' and 'MySQLUser' in botConfig and botConfig[
-                                                                                                        'MySQLUser'] != '' and 'MySQLPass' in botConfig:
+                                                                                                  'MySQLUser'] != '' and 'MySQLPass' in botConfig:
     try:
         import MySQLdb
     except ImportError:
@@ -252,7 +251,8 @@ class bot(Daemon):
             return int(output)
 
         if sys.platform == 'darwin':
-            output = subprocess.Popen(['sysctl', 'hw.ncpu'], stdout=subprocess.PIPE, close_fds=True).communicate()[0].split(':')[1]
+            output =subprocess.Popen(['sysctl', 'hw.ncpu'], stdout=subprocess.PIPE, close_fds=True).communicate()[0].split(':')[
+            1]
             return int(output)
 
 # Control of daemon		
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     # Logging
     logFile = os.path.join(botConfig['tmpDirectory'], 'mt-bot.log')
 
-    if os.access(botConfig['tmpDirectory'], os.W_OK) == False:
+    if not os.access(botConfig['tmpDirectory'], os.W_OK):
         print 'Unable to write the log file at ' + logFile
         print 'bot will now quit'
         sys.exit(1)
@@ -278,7 +278,7 @@ if __name__ == '__main__':
     mainLogger.info('mt-bot %s started', botConfig['version'])
     mainLogger.info('--')
 
-    mainLogger.info('sd_url: %s', botConfig['mt_url'])
+    mainLogger.info('mt_url: %s', botConfig['mt_url'])
     mainLogger.info('bot_key: %s', botConfig['bot_key'])
 
     argLen = len(sys.argv)
@@ -295,7 +295,7 @@ if __name__ == '__main__':
     else:
         pidFile = os.path.join(botConfig['pidfileDirectory'], 'mt-bot.pid')
 
-    if os.access(botConfig['pidfileDirectory'], os.W_OK) == False:
+    if not os.access(botConfig['pidfileDirectory'], os.W_OK):
         print 'Unable to write the PID file at ' + pidFile
         print 'bot will now quit'
         sys.exit(1)
@@ -416,78 +416,78 @@ if __name__ == '__main__':
                 sys.exit(1)
 
             # Do the version check
-        if updateInfo['version'] != botConfig['version']:
-            import md5 # I know this is depreciated, but we still support Python 2.4 and hashlib is only in 2.5. Case 26918
-            import urllib
+            if updateInfo['version'] != botConfig['version']:
+                import md5 # I know this is depreciated, but we still support Python 2.4 and hashlib is only in 2.5. Case 26918
+                import urllib
 
-            print 'A new version is available.'
+                print 'A new version is available.'
 
-            def downloadFile(botFile, recursed=False):
-                mainLogger.debug('Update: downloading ' + botFile['name'])
-                print 'Downloading ' + botFile['name']
+                def downloadFile(botFile, recursed=False):
+                    mainLogger.debug('Update: downloading ' + botFile['name'])
+                    print 'Downloading ' + botFile['name']
 
-                downloadedFile = urllib.urlretrieve(
-                    'http://www.metrics-bot.com/downloads/mt-bot/' + botFile['name'])
+                    downloadedFile = urllib.urlretrieve(
+                        'http://www.metrics-bot.com/downloads/mt-bot/' + botFile['name'])
 
-                # Do md5 check to make sure the file downloaded properly
-                checksum = md5.new()
-                f = file(downloadedFile[0], 'rb')
+                    # Do md5 check to make sure the file downloaded properly
+                    checksum = md5.new()
+                    f = file(downloadedFile[0], 'rb')
 
-                # Although the files are small, we can't guarantee the available memory nor that there
-                # won't be large files in the future, so read the file in small parts (1kb at time)
-                while True:
-                    part = f.read(1024)
+                    # Although the files are small, we can't guarantee the available memory nor that there
+                    # won't be large files in the future, so read the file in small parts (1kb at time)
+                    while True:
+                        part = f.read(1024)
 
-                    if not part:
-                        break # end of file
+                        if not part:
+                            break # end of file
 
-                    checksum.update(part)
+                        checksum.update(part)
 
-                f.close()
+                    f.close()
 
-                # Do we have a match?
-                if checksum.hexdigest() == botFile['md5']:
-                    return downloadedFile[0]
-
-                else:
-                    # Try once more
-                    if recursed == False:
-                        downloadFile(botFile, True)
+                    # Do we have a match?
+                    if checksum.hexdigest() == botFile['md5']:
+                        return downloadedFile[0]
 
                     else:
-                        print botFile[
-                              'name'] + ' did not match its checksum - it is corrupted. This may be caused by network issues so please try again in a moment.'
+                        # Try once more
+                        if not recursed:
+                            downloadFile(botFile, True)
+
+                        else:
+                            print botFile[
+                                  'name'] + ' did not match its checksum - it is corrupted. This may be caused by network issues so please try again in a moment.'
+                            sys.exit(1)
+
+                # Loop through the new files and call the download function
+                for botFile in updateInfo['files']:
+                    botFile['tempFile'] = downloadFile(botFile)
+
+                    # If we got to here then everything worked out fine. However, all the files are still in temporary locations so we need to move them
+                    # This is to stop an update breaking a working bot if the update fails halfway through
+                import os
+                import shutil # Prevents [Errno 18] Invalid cross-device link (case 26878) - http://mail.python.org/pipermail/python-list/2005-February/308026.html
+
+                for botFile in updateInfo['files']:
+                    mainLogger.debug('Update: updating ' + botFile['name'])
+                    print 'Updating ' + botFile['name']
+
+                    try:
+                        if os.path.exists(botFile['name']):
+                            os.remove(botFile['name'])
+
+                        shutil.move(botFile['tempFile'], botFile['name'])
+
+                    except OSError:
+                        print 'An OS level error occurred. You will need to manually re-install the bot by downloading the latest version from http://www.metrics-bot.com/downloads/mt-bot.tar.gz. You can copy your config.cfg to the new install'
                         sys.exit(1)
 
-            # Loop through the new files and call the download function
-            for botFile in updateInfo['files']:
-                botFile['tempFile'] = downloadFile(botFile)
+                mainLogger.debug('Update: done')
 
-            # If we got to here then everything worked out fine. However, all the files are still in temporary locations so we need to move them
-            # This is to stop an update breaking a working bot if the update fails halfway through
-            import os
-            import shutil # Prevents [Errno 18] Invalid cross-device link (case 26878) - http://mail.python.org/pipermail/python-list/2005-February/308026.html
+                print 'Update completed. Please restart the bot (python bot.py restart).'
 
-            for botFile in updateInfo['files']:
-                mainLogger.debug('Update: updating ' + botFile['name'])
-                print 'Updating ' + botFile['name']
-
-                try:
-                    if os.path.exists(botFile['name']):
-                        os.remove(botFile['name'])
-
-                    shutil.move(botFile['tempFile'], botFile['name'])
-
-                except OSError:
-                    print 'An OS level error occurred. You will need to manually re-install the bot by downloading the latest version from http://www.metrics-bot.com/downloads/mt-bot.tar.gz. You can copy your config.cfg to the new install'
-                    sys.exit(1)
-
-            mainLogger.debug('Update: done')
-
-            print 'Update completed. Please restart the bot (python bot.py restart).'
-
-        else:
-            print 'The bot is already up to date'
+            else:
+                print 'The bot is already up to date'
     else:
         print 'Unknown command'
         sys.exit(1)
