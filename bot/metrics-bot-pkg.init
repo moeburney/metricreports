@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+###############################################################################
+# mt-bot
+#
+# Written by Boxed Ice <hello@boxedice.com>
+# A server monitoring daemon for www.metrics-bot.com
+#
+# Licensed under Simplified BSD License (see LICENSE)
+#
+###############################################################################
+#
+# chkconfig: 345 85 15
+# description: metrics bot Monitoring bot
+
+### BEGIN INIT INFO
+# Provides: mt-bot
+# Short-Description: Start and start mt-bot
+# Description: mt-bot is the monitoring bot component for metrics bot
+# Required-Start:
+# Required-Stop:
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+### END INIT INFO
+
+botPATH="/home/rohan/src/metrics-bot/bot.py"
+botUSER="rohan"
+PIDPATH="/var/run/mt-bot/"
+
+[ -f $botPATH ] || echo $botPATH "not found"
+
+# Source function library.
+if [ -f /etc/init.d/functions ]; then
+        . /etc/init.d/functions
+fi
+
+if [ -f /etc/SuSE-release ]; then
+        . /etc/rc.status
+        rc_reset
+fi
+
+# Action to take
+case "$1" in
+  start)
+        if [ ! -d $PIDPATH ]; then
+            mkdir -p $PIDPATH
+            chown rohan:users $PIDPATH
+        fi
+
+        su $botUSER -c "python $botPATH stop init"
+        su $botUSER -c "python $botPATH start init --clean"
+
+        if [ -f /etc/SuSE-release ]; then
+                rc_status -v
+        elif [ -f /etc/debian_version ] || [ -f /etc/lsb-release ] || [ -f /etc/gentoo-release ]; then
+                echo " Started"
+        else
+                success
+                echo
+        fi
+        echo
+    ;;
+  stop)
+        su $botUSER -c "python $botPATH stop init"
+
+        if [ -f /etc/SuSE-release ]; then
+                rc_status -v
+        elif [ -f /etc/debian_version ] || [ -f /etc/lsb-release ] || [ -f /etc/gentoo-release ]; then
+                echo " Stopped"
+        else
+                success
+                echo
+        fi
+        echo
+    ;;
+  restart)
+        $0 stop
+        $0 start
+    ;;
+  *)
+        echo "Usage: /etc/init.d/mt-bot start|stop|restart"
+        exit 1
+esac
+
+exit 0
