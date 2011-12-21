@@ -1,11 +1,3 @@
-'''
-	metrics bot
-	www.metrics-bot.com
-	----
-	Server monitoring bot for Linux, FreeBSD and Mac OS X
-
-	Licensed under Simplified BSD License (see LICENSE)
-'''
 
 # SO references
 # http://stackoverflow.com/questions/446209/possible-values-from-sys-platform/446210#446210

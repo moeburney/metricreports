@@ -1,10 +1,4 @@
 #!/usr/bin/env python
-'''
-	metrics bot
-	www.metrics-bot.com
-
-	'''
-
 import logging
 
 # General config
@@ -105,32 +99,6 @@ try:
         except KeyError, ex:
             botConfig['logging'] = logging.INFO
 
-    if config.has_option('Main', 'mongodb_server'):
-        botConfig['MongoDBServer'] = config.get('Main', 'mongodb_server')
-
-    if config.has_option('Main', 'mongodb_dbstats'):
-        botConfig['MongoDBDBStats'] = config.get('Main', 'mongodb_dbstats')
-
-    if config.has_option('Main', 'mongodb_replset'):
-        botConfig['MongoDBReplSet'] = config.get('Main', 'mongodb_replset')
-
-    if config.has_option('Main', 'mysql_server'):
-        botConfig['MySQLServer'] = config.get('Main', 'mysql_server')
-
-    if config.has_option('Main', 'mysql_user'):
-        botConfig['MySQLUser'] = config.get('Main', 'mysql_user')
-
-    if config.has_option('Main', 'mysql_pass'):
-        botConfig['MySQLPass'] = config.get('Main', 'mysql_pass')
-
-    if config.has_option('Main', 'mysql_port'):
-        botConfig['MySQLPort'] = config.get('Main', 'mysql_port')
-
-    if config.has_option('Main', 'mysql_socket'):
-        botConfig['MySQLSocket'] = config.get('Main', 'mysql_socket')
-
-    if config.has_option('Main', 'nginx_status_url'):
-        botConfig['nginxStatusUrl'] = config.get('Main', 'nginx_status_url')
 
     if config.has_option('Main', 'tmp_directory'):
         botConfig['tmpDirectory'] = config.get('Main', 'tmp_directory')
@@ -138,14 +106,6 @@ try:
     if config.has_option('Main', 'pidfile_directory'):
         botConfig['pidfileDirectory'] = config.get('Main', 'pidfile_directory')
 
-    if config.has_option('Main', 'rabbitmq_status_url'):
-        botConfig['rabbitMQStatusUrl'] = config.get('Main', 'rabbitmq_status_url')
-
-    if config.has_option('Main', 'rabbitmq_user'):
-        botConfig['rabbitMQUser'] = config.get('Main', 'rabbitmq_user')
-
-    if config.has_option('Main', 'rabbitmq_pass'):
-        botConfig['rabbitMQPass'] = config.get('Main', 'rabbitmq_pass')
 
 except ConfigParser.NoSectionError, e:
     print 'Config file not found or incorrectly formatted'
@@ -166,39 +126,12 @@ if botConfig['mt_url'] == 'http://example.localhost.com' or botConfig['bot_key']
     print 'bot will now quit'
     sys.exit(1)
 
-# Check to make sure sd_url is in correct
-if re.match('http(s)?(\:\/\/)[a-zA-Z0-9_\-]+\.(metrics-bot.com)', botConfig['mt_url']) is None:
-    print 'Your mt_url is incorrect. It needs to be in the form http://example.metrics-bot.com (or using https)'
+# Check to make sure mt_url is in correct
+if re.match('http(s)?(\:\/\/)[a-zA-Z0-9_\-]+\.(oursite.com)', botConfig['mt_url']) is None:
+    print 'Your mt_url is incorrect. It needs to be in the form http://example.oursite.com (or using https)'
     print 'bot will now quit'
     sys.exit(1)
 
-# Check apache_status_url is not empty (case 27073)
-if 'apacheStatusUrl' in botConfig and botConfig['apacheStatusUrl'] is None:
-    print 'You must provide a config value for apache_status_url. If you do not wish to use Apache monitoring, leave it as its default value - http://www.example.com/server-status/?auto'
-    print 'bot will now quit'
-    sys.exit(1)
-
-if 'nginxStatusUrl' in botConfig and botConfig['nginxStatusUrl'] is None:
-    print 'You must provide a config value for nginx_status_url. If you do not wish to use Nginx monitoring, leave it as its default value - http://www.example.com/nginx_status'
-    print 'bot will now quit'
-    sys.exit(1)
-
-if 'MySQLServer' in botConfig and botConfig['MySQLServer'] != '' and 'MySQLUser' in botConfig and botConfig[
-                                                                                                  'MySQLUser'] != '' and 'MySQLPass' in botConfig:
-    try:
-        import MySQLdb
-    except ImportError:
-        print 'You have configured MySQL for monitoring, but the MySQLdb module is not installed. For more info, see: http://www.metrics-bot.com/docs/bot/mysqlstatus/'
-        print 'bot will now quit'
-        sys.exit(1)
-
-if 'MongoDBServer' in botConfig and botConfig['MongoDBServer'] != '':
-    try:
-        import pymongo
-    except ImportError:
-        print 'You have configured MongoDB for monitoring, but the pymongo module is not installed. For more info, see: http://www.metrics-bot.com/docs/bot/mongodbstatus/'
-        print 'bot will now quit'
-        sys.exit(1)
 
 for section in config.sections():
     rawConfig[section] = dict()
