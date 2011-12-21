@@ -10,6 +10,7 @@ import subprocess
 import sys
 import urllib
 import urllib2
+import time
 import minjson
 
 try:
@@ -40,7 +41,7 @@ class checks:
         self.botConfig = botConfig
         self.rawConfig = rawConfig
         self.mainLogger = mainLogger
-        self.networkTrafficStore = dict()
+        self.networkTrafficStore = {}
         self.topIndex = 0
         self.os = None
         self.linuxProcFsLocation = None
@@ -61,7 +62,7 @@ class checks:
     def getCPUStats(self):
         self.mainLogger.debug('getCPUStats: start')
 
-        cpuStats = dict()
+        cpuStats = {}
 
         if sys.platform == 'linux2':
             self.mainLogger.debug('getCPUStats: linux2')
@@ -98,7 +99,7 @@ class checks:
 
                     values = re.findall(valueRegexp, row.replace(',', '.'))
 
-                    cpuStats[device] = dict()
+                    cpuStats[device] = {}
                     for headerIndex in range(0, len(headerNames)):
                         headerName = headerNames[headerIndex]
                         cpuStats[device][headerName] = values[headerIndex]
@@ -217,7 +218,7 @@ class checks:
     def getIOStats(self):
         self.mainLogger.debug('getIOStats: start')
 
-        ioStats = dict()
+        ioStats = {}
 
         if sys.platform == 'linux2':
             self.mainLogger.debug('getIOStats: linux2')
@@ -263,7 +264,7 @@ class checks:
                             # instances of [].
                             continue
 
-                        ioStats[device] = dict()
+                        ioStats[device] = {}
 
                         for headerIndex in range(0, len(headerNames)):
                             headerName = headerNames[headerIndex]
@@ -449,7 +450,7 @@ class checks:
 
             regexp = re.compile(r'([0-9]+)') # We run this several times so one-time compile now
 
-            meminfo = dict()
+            meminfo = {}
 
             self.mainLogger.debug('getMemoryUsage: parsing, looping')
 
@@ -470,7 +471,7 @@ class checks:
 
             self.mainLogger.debug('getMemoryUsage: parsing, looped')
 
-            memData = dict()
+            memData = {}
             memData['physFree'] = 0
             memData['physUsed'] = 0
             memData['cached'] = 0
@@ -802,7 +803,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsing, looping')
 
-            faces = dict()
+            faces = {}
             for line in lines[2:]:
                 if line.find(':') < 0: continue
                 face, data = line.split(':')
@@ -811,7 +812,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsed, looping')
 
-            interfaces = dict()
+            interfaces = {}
 
             # Now loop through each interface
             for face in faces:
@@ -821,7 +822,7 @@ class checks:
                 # then the next time we can calculate the difference
                 try:
                     if key in self.networkTrafficStore:
-                        interfaces[key] = dict()
+                        interfaces[key] = {}
                         interfaces[key]['recv_bytes'] = long(faces[face]['recv_bytes']) - long(
                             self.networkTrafficStore[key]['recv_bytes'])
                         interfaces[key]['trans_bytes'] = long(faces[face]['trans_bytes']) - long(
@@ -841,7 +842,7 @@ class checks:
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
                     else:
-                        self.networkTrafficStore[key] = dict()
+                        self.networkTrafficStore[key] = {}
                         self.networkTrafficStore[key]['recv_bytes'] = faces[face]['recv_bytes']
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
@@ -889,7 +890,7 @@ class checks:
             lines = netstat.split('\n')
 
             # Loop over available data for each inteface
-            faces = dict()
+            faces = {}
             rxKey = None
             txKey = None
 
@@ -924,7 +925,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsed, looping')
 
-            interfaces = dict()
+            interfaces = {}
 
             # Now loop through each interface
             for face in faces:
@@ -934,7 +935,7 @@ class checks:
                     # We need to work out the traffic since the last check so first time we store the current value
                     # then the next time we can calculate the difference
                     if key in self.networkTrafficStore:
-                        interfaces[key] = dict()
+                        interfaces[key] = {}
                         interfaces[key]['recv_bytes'] = long(faces[face]['recv_bytes']) - long(
                             self.networkTrafficStore[key]['recv_bytes'])
                         interfaces[key]['trans_bytes'] = long(faces[face]['trans_bytes']) - long(
@@ -954,7 +955,7 @@ class checks:
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
                     else:
-                        self.networkTrafficStore[key] = dict()
+                        self.networkTrafficStore[key] = {}
                         self.networkTrafficStore[key]['recv_bytes'] = faces[face]['recv_bytes']
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
@@ -1044,9 +1045,9 @@ class checks:
                 if not python24:
                     signal.signal(signal.SIGALRM, self.signalHandler)
                     signal.alarm(15)
-
+                reqstr = "/%s/%s/%s/" % (int(time.time()),time.tzname[0],'postback')
                 # Build the request handler
-                request = urllib2.Request(self.botConfig['mt_url'] + '/postback/', postBackData, headers)
+                request = urllib2.Request(self.botConfig['mt_url'] + reqstr, postBackData, headers)
 
                 # Do the request, log any errors
                 response = urllib2.urlopen(request)
@@ -1125,7 +1126,7 @@ class checks:
 
         self.mainLogger.info('doChecks: bot key = ' + self.botConfig['bot_key'])
 
-        checksData = dict()
+        checksData = {}
 
         # Basic payload items
         checksData['os'] = self.os
@@ -1151,52 +1152,6 @@ class checks:
         if processes:
             checksData['processes'] = processes
 
-        # Apache Status
-        if apacheStatus:
-            if 'reqPerSec' in apacheStatus:
-                checksData['apacheReqPerSec'] = apacheStatus['reqPerSec']
-
-            if 'busyWorkers' in apacheStatus:
-                checksData['apacheBusyWorkers'] = apacheStatus['busyWorkers']
-
-            if 'idleWorkers' in apacheStatus:
-                checksData['apacheIdleWorkers'] = apacheStatus['idleWorkers']
-
-            self.mainLogger.debug('doChecks: built optional payload apacheStatus')
-
-        # MySQL Status
-        if mysqlStatus:
-            checksData['mysqlConnections'] = mysqlStatus['connections']
-            checksData['mysqlCreatedTmpDiskTables'] = mysqlStatus['createdTmpDiskTables']
-            checksData['mysqlMaxUsedConnections'] = mysqlStatus['maxUsedConnections']
-            checksData['mysqlOpenFiles'] = mysqlStatus['openFiles']
-            checksData['mysqlSlowQueries'] = mysqlStatus['slowQueries']
-            checksData['mysqlTableLocksWaited'] = mysqlStatus['tableLocksWaited']
-            checksData['mysqlThreadsConnected'] = mysqlStatus['threadsConnected']
-
-            if mysqlStatus['secondsBehindMaster'] is not None:
-                checksData['mysqlSecondsBehindMaster'] = mysqlStatus['secondsBehindMaster']
-
-        # Nginx Status
-        if nginxStatus:
-            checksData['nginxConnections'] = nginxStatus['connections']
-            checksData['nginxReqPerSec'] = nginxStatus['reqPerSec']
-
-        # RabbitMQ
-        if rabbitmq:
-            checksData['rabbitMQ'] = rabbitmq
-
-        # MongoDB
-        if mongodb:
-            checksData['mongoDB'] = mongodb
-
-        # CouchDB
-        if couchdb:
-            checksData['couchDB'] = couchdb
-
-        # Plugins
-        if plugins:
-            checksData['plugins'] = plugins
 
         if ioStats:
             checksData['ioStats'] = ioStats

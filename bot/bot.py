@@ -6,13 +6,13 @@ from checks import checks
 from daemon import Daemon
 import minjson
 
-botConfig = dict()
+botConfig = {}
 botConfig['logging'] = logging.INFO
 botConfig['checkFreq'] = 60
 
 botConfig['version'] = '0.1'
 
-rawConfig = dict()
+rawConfig = {}
 
 # Check we're not using an old version of Python. Do this before anything else
 # We need 2.4 above because some modules (like subprocess) were only introduced in 2.4.
@@ -127,14 +127,14 @@ if botConfig['mt_url'] == 'http://example.localhost.com' or botConfig['bot_key']
     sys.exit(1)
 
 # Check to make sure mt_url is in correct
-if re.match('http(s)?(\:\/\/)[a-zA-Z0-9_\-]+\.(oursite.com)', botConfig['mt_url']) is None:
-    print 'Your mt_url is incorrect. It needs to be in the form http://example.oursite.com (or using https)'
+if re.match('http(s)?(\:\/\/)[a-zA-Z0-9_\-]+\.(metrics-bot.com)', botConfig['mt_url']) is None:
+    print 'Your mt_url is incorrect. It needs to be in the form http://example.metrics-bot.com (or using https)'
     print 'bot will now quit'
     sys.exit(1)
 
 
 for section in config.sections():
-    rawConfig[section] = dict()
+    rawConfig[section] = {}
 
     for option in config.options(section):
         rawConfig[section][option] = config.get(section, option)
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         print 'Unable to write the log file at ' + logFile
         print 'bot will now quit'
         sys.exit(1)
-
+    import logging.handlers
     handler = logging.handlers.RotatingFileHandler(logFile, maxBytes=10485760, backupCount=5) # 10MB files
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 

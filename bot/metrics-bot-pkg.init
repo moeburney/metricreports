@@ -21,7 +21,7 @@
 
 botPATH="/home/rohan/src/metricreports/bot/bot.py"
 botUSER="rohan"
-PIDPATH="/var/run/mt-bot/"
+PIDPATH="/home/rohan/.mt-bot/"
 
 [ -f $botPATH ] || echo $botPATH "not found"
 
@@ -74,7 +74,7 @@ case "$1" in
         $0 start
     ;;
   *)
-        echo "Usage: /etc/init.d/mt-bot start|stop|restart"
+        echo "Usage:" $botPATH "start|stop|restart"
         exit 1
 esac
 
