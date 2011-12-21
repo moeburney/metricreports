@@ -2,11 +2,8 @@
 '''
 	metrics bot
 	www.metrics-bot.com
-	----
-	Server monitoring bot for Linux, FreeBSD and Mac OS X
 
-	Licensed under Simplified BSD License (see LICENSE)
-'''
+	'''
 
 import logging
 
@@ -15,20 +12,20 @@ from checks import checks
 from daemon import Daemon
 import minjson
 
-botConfig = {}
+botConfig = dict()
 botConfig['logging'] = logging.INFO
 botConfig['checkFreq'] = 60
 
 botConfig['version'] = '0.1'
 
-rawConfig = {}
+rawConfig = dict()
 
 # Check we're not using an old version of Python. Do this before anything else
 # We need 2.4 above because some modules (like subprocess) were only introduced in 2.4.
 import sys
 
 if int(sys.version_info[1]) <= 3:
-    print 'You are using an outdated version of Python. Please update to v2.4 or above (v3 is not supported). For newer OSs, you can update Python without affecting your system install. See http://blog.boxedice.com/2010/01/19/updating-python-on-rhelcentos/ If you are running RHEl 4 / CentOS 4 then you will need to compile Python manually.'
+    print 'You are using an outdated version of Python. Please update to v2.4 or above.'
     sys.exit(1)
 
 # Core modules
@@ -204,7 +201,7 @@ if 'MongoDBServer' in botConfig and botConfig['MongoDBServer'] != '':
         sys.exit(1)
 
 for section in config.sections():
-    rawConfig[section] = {}
+    rawConfig[section] = dict()
 
     for option in config.options(section):
         rawConfig[section][option] = config.get(section, option)
@@ -348,146 +345,7 @@ if __name__ == '__main__':
             else:
                 print 'mt-bot is not running.'
 
-        elif 'update' == sys.argv[1]:
-            mainLogger.info('Action: update')
 
-            if os.path.abspath(__file__) == '/usr/bin/mt-bot/bot.py':
-                print 'Please use the Linux package manager that was used to install the bot to update it.'
-                print 'e.g. yum install mt-bot or apt-get install mt-bot'
-                sys.exit(1)
-
-            import httplib
-            import platform
-            import urllib2
-
-            print 'Checking if there is a new version';
-
-            # Get the latest version info
-            try:
-                mainLogger.debug('Update: checking for update')
-
-                request = urllib2.urlopen('http://www.metrics-bot.com/botupdate/')
-                response = request.read()
-
-            except urllib2.HTTPError, e:
-                print 'Unable to get latest version info - HTTPError = ' + str(e)
-                sys.exit(1)
-
-            except urllib2.URLError, e:
-                print 'Unable to get latest version info - URLError = ' + str(e)
-                sys.exit(1)
-
-            except httplib.HTTPException, e:
-                print 'Unable to get latest version info - HTTPException'
-                sys.exit(1)
-
-            except Exception, e:
-                import traceback
-
-                print 'Unable to get latest version info - Exception = ' + traceback.format_exc()
-                sys.exit(1)
-
-            mainLogger.debug('Update: importing json/minjson')
-
-            # We need to return the data using JSON. As of Python 2.6+, there is a core JSON
-            # module. We have a 2.4/2.5 compatible lib included with the bot but if we're
-            # on 2.6 or above, we should use the core module which will be faster
-            pythonVersion = platform.python_version_tuple()
-
-            # Decode the JSON
-            if int(pythonVersion[1]) >= 6: # Don't bother checking major version since we only support v2 anyway
-                import json
-
-                mainLogger.debug('Update: decoding JSON (json)')
-
-                try:
-                    updateInfo = json.loads(response)
-                except Exception, e:
-                    print 'Unable to get latest version info. Try again later.'
-                    sys.exit(1)
-
-            else:
-                mainLogger.debug('Update: decoding JSON (minjson)')
-
-            try:
-                updateInfo = minjson.safeRead(response)
-            except Exception, e:
-                print 'Unable to get latest version info. Try again later.'
-                sys.exit(1)
-
-            # Do the version check
-            if updateInfo['version'] != botConfig['version']:
-                import md5 # I know this is depreciated, but we still support Python 2.4 and hashlib is only in 2.5. Case 26918
-                import urllib
-
-                print 'A new version is available.'
-
-                def downloadFile(botFile, recursed=False):
-                    mainLogger.debug('Update: downloading ' + botFile['name'])
-                    print 'Downloading ' + botFile['name']
-
-                    downloadedFile = urllib.urlretrieve(
-                        'http://www.metrics-bot.com/downloads/mt-bot/' + botFile['name'])
-
-                    # Do md5 check to make sure the file downloaded properly
-                    checksum = md5.new()
-                    f = file(downloadedFile[0], 'rb')
-
-                    # Although the files are small, we can't guarantee the available memory nor that there
-                    # won't be large files in the future, so read the file in small parts (1kb at time)
-                    while True:
-                        part = f.read(1024)
-
-                        if not part:
-                            break # end of file
-
-                        checksum.update(part)
-
-                    f.close()
-
-                    # Do we have a match?
-                    if checksum.hexdigest() == botFile['md5']:
-                        return downloadedFile[0]
-
-                    else:
-                        # Try once more
-                        if not recursed:
-                            downloadFile(botFile, True)
-
-                        else:
-                            print botFile[
-                                  'name'] + ' did not match its checksum - it is corrupted. This may be caused by network issues so please try again in a moment.'
-                            sys.exit(1)
-
-                # Loop through the new files and call the download function
-                for botFile in updateInfo['files']:
-                    botFile['tempFile'] = downloadFile(botFile)
-
-                    # If we got to here then everything worked out fine. However, all the files are still in temporary locations so we need to move them
-                    # This is to stop an update breaking a working bot if the update fails halfway through
-                import os
-                import shutil # Prevents [Errno 18] Invalid cross-device link (case 26878) - http://mail.python.org/pipermail/python-list/2005-February/308026.html
-
-                for botFile in updateInfo['files']:
-                    mainLogger.debug('Update: updating ' + botFile['name'])
-                    print 'Updating ' + botFile['name']
-
-                    try:
-                        if os.path.exists(botFile['name']):
-                            os.remove(botFile['name'])
-
-                        shutil.move(botFile['tempFile'], botFile['name'])
-
-                    except OSError:
-                        print 'An OS level error occurred. You will need to manually re-install the bot by downloading the latest version from http://www.metrics-bot.com/downloads/mt-bot.tar.gz. You can copy your config.cfg to the new install'
-                        sys.exit(1)
-
-                mainLogger.debug('Update: done')
-
-                print 'Update completed. Please restart the bot (python bot.py restart).'
-
-            else:
-                print 'The bot is already up to date'
     else:
         print 'Unknown command'
         sys.exit(1)
@@ -495,5 +353,5 @@ if __name__ == '__main__':
     sys.exit(0)
 
 else:
-    print 'usage: %s start|stop|restart|status|update' % sys.argv[0]
+    print 'usage: %s start|stop|restart|status|' % sys.argv[0]
     sys.exit(1)

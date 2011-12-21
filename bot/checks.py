@@ -52,15 +52,7 @@ class checks:
         self.botConfig = botConfig
         self.rawConfig = rawConfig
         self.mainLogger = mainLogger
-
-        self.mysqlConnectionsStore = None
-        self.mysqlSlowQueriesStore = None
-        self.mysqlVersion = None
-        self.networkTrafficStore = {}
-        self.nginxRequestsStore = None
-        self.mongoDBStore = None
-        self.apacheTotalAccesses = None
-        self.plugins = None
+        self.networkTrafficStore = dict()
         self.topIndex = 0
         self.os = None
         self.linuxProcFsLocation = None
@@ -74,285 +66,14 @@ class checks:
         # Checks
 
 
-    def getApacheStatus(self):
-        self.mainLogger.debug('getApacheStatus: start')
 
-        if 'apacheStatusUrl' in self.botConfig and self.botConfig[
-                                                   'apacheStatusUrl'] != 'http://www.example.com/server-status/?auto':    # Don't do it if the status URL hasn't been provided
-            self.mainLogger.debug('getApacheStatus: config set')
 
-            try:
-                try:
-                    self.mainLogger.debug('getApacheStatus: attempting urlopen')
 
-                    # Force timeout using signals
-                    if not python24:
-                        signal.signal(signal.SIGALRM, self.signalHandler)
-                        signal.alarm(15)
-
-                    req = urllib2.Request(self.botConfig['apacheStatusUrl'], None, headers)
-                    request = urllib2.urlopen(req)
-                    response = request.read()
-
-                except urllib2.HTTPError, e:
-                    self.mainLogger.error('Unable to get Apache status - HTTPError = ' + str(e))
-                    return False
-
-                except urllib2.URLError, e:
-                    self.mainLogger.error('Unable to get Apache status - URLError = ' + str(e))
-                    return False
-
-                except httplib.HTTPException, e:
-                    self.mainLogger.error('Unable to get Apache status - HTTPException = ' + str(e))
-                    return False
-
-                except Exception, e:
-                    import traceback
-
-                    self.mainLogger.error('Unable to get Apache status - Exception = ' + traceback.format_exc())
-                    return False
-            finally:
-                if not python24:
-                    signal.alarm(0)
-
-            self.mainLogger.debug('getApacheStatus: urlopen success, start parsing')
-
-            # Split out each line
-            lines = response.split('\n')
-
-            # Loop over each line and get the values
-            apacheStatus = {}
-
-            self.mainLogger.debug('getApacheStatus: parsing, loop')
-
-            # Loop through and extract the numerical values
-            for line in lines:
-                values = line.split(': ')
-
-                try:
-                    apacheStatus[str(values[0])] = values[1]
-
-                except IndexError:
-                    break
-
-            self.mainLogger.debug('getApacheStatus: parsed')
-
-            apacheStatusReturn = {}
-
-            try:
-                if apacheStatus['Total Accesses'] != False:
-                    self.mainLogger.debug('getApacheStatus: processing total accesses')
-
-                    totalAccesses = float(apacheStatus['Total Accesses'])
-
-                    if self.apacheTotalAccesses is None or totalAccesses <= 0:
-                        apacheStatusReturn['reqPerSec'] = 0.0
-
-                        self.apacheTotalAccesses = totalAccesses
-
-                        self.mainLogger.debug(
-                            'getApacheStatus: no cached total accesses (or totalAccesses == 0), so storing for first time / resetting stored value')
-
-                    else:
-                        self.mainLogger.debug('getApacheStatus: cached data exists, so calculating per sec metrics')
-
-                        apacheStatusReturn['reqPerSec'] = (totalAccesses - self.apacheTotalAccesses) / 60
-
-                        self.apacheTotalAccesses = totalAccesses
-
-                else:
-                    self.mainLogger.error(
-                        'getApacheStatus: Total Accesses not present in mod_status output. Is ExtendedStatus enabled?')
-
-            except IndexError:
-                self.mainLogger.error(
-                    'getApacheStatus: IndexError - Total Accesses not present in mod_status output. Is ExtendedStatus enabled?')
-
-            except KeyError:
-                self.mainLogger.error(
-                    'getApacheStatus: KeyError - Total Accesses not present in mod_status output. Is ExtendedStatus enabled?')
-
-            try:
-                if apacheStatus['BusyWorkers'] != False and apacheStatus['IdleWorkers'] != False:
-                    apacheStatusReturn['busyWorkers'] = apacheStatus['BusyWorkers']
-                    apacheStatusReturn['idleWorkers'] = apacheStatus['IdleWorkers']
-
-                else:
-                    self.mainLogger.error(
-                        'getApacheStatus: BusyWorkers/IdleWorkers not present in mod_status output. Is the URL correct (must have ?auto at the end)?')
-
-            except IndexError:
-                self.mainLogger.error(
-                    'getApacheStatus: IndexError - BusyWorkers/IdleWorkers not present in mod_status output. Is the URL correct (must have ?auto at the end)?')
-
-            except KeyError:
-                self.mainLogger.error(
-                    'getApacheStatus: KeyError - BusyWorkers/IdleWorkers not present in mod_status output. Is the URL correct (must have ?auto at the end)?')
-
-            if 'reqPerSec' in apacheStatusReturn or 'BusyWorkers' in apacheStatusReturn or 'IdleWorkers' in apacheStatusReturn:
-                return apacheStatusReturn
-
-            else:
-                return False
-
-        else:
-            self.mainLogger.debug('getApacheStatus: config not set')
-
-        return False
-
-    def getCouchDBStatus(self):
-        self.mainLogger.debug('getCouchDBStatus: start')
-
-        if 'CouchDBServer' not in self.botConfig or self.botConfig['CouchDBServer'] == '':
-            self.mainLogger.debug('getCouchDBStatus: config not set')
-            return False
-
-        self.mainLogger.debug('getCouchDBStatus: config set')
-
-        # The dictionary to be returned.
-        couchdb = {'stats': None, 'databases': {}}
-
-        # First, get overall statistics.
-        endpoint = '/_stats/'
-
-        try:
-            url = '%s%s' % (self.botConfig['CouchDBServer'], endpoint)
-            self.mainLogger.debug('getCouchDBStatus: attempting urlopen')
-            req = urllib2.Request(url, None, headers)
-
-            # Do the request, log any errors
-            request = urllib2.urlopen(req)
-            response = request.read()
-        except urllib2.HTTPError, e:
-            self.mainLogger.error('Unable to get CouchDB statistics - HTTPError = ' + str(e))
-            return False
-
-        except urllib2.URLError, e:
-            self.mainLogger.error('Unable to get CouchDB statistics - URLError = ' + str(e))
-            return False
-
-        except httplib.HTTPException, e:
-            self.mainLogger.error('Unable to get CouchDB statistics - HTTPException = ' + str(e))
-            return False
-
-        except Exception, e:
-            import traceback
-
-            self.mainLogger.error('Unable to get CouchDB statistics - Exception = ' + traceback.format_exc())
-            return False
-
-        try:
-            if int(pythonVersion[1]) >= 6:
-                self.mainLogger.debug('getCouchDBStatus: json read')
-                stats = json.loads(response)
-
-            else:
-                self.mainLogger.debug('getCouchDBStatus: minjson read')
-                stats = minjson.safeRead(response)
-
-        except Exception, e:
-            import traceback
-
-            self.mainLogger.error('Unable to load CouchDB database JSON - Exception = ' + traceback.format_exc())
-            return False
-
-        couchdb['stats'] = stats
-
-        # Next, get all database names.
-        endpoint = '/_all_dbs/'
-
-        try:
-            url = '%s%s' % (self.botConfig['CouchDBServer'], endpoint)
-            self.mainLogger.debug('getCouchDBStatus: attempting urlopen')
-            req = urllib2.Request(url, None, headers)
-
-            # Do the request, log any errors
-            request = urllib2.urlopen(req)
-            response = request.read()
-        except urllib2.HTTPError, e:
-            self.mainLogger.error('Unable to get CouchDB status - HTTPError = ' + str(e))
-            return False
-
-        except urllib2.URLError, e:
-            self.mainLogger.error('Unable to get CouchDB status - URLError = ' + str(e))
-            return False
-
-        except httplib.HTTPException, e:
-            self.mainLogger.error('Unable to get CouchDB status - HTTPException = ' + str(e))
-            return False
-
-        except Exception, e:
-            import traceback
-
-            self.mainLogger.error('Unable to get CouchDB status - Exception = ' + traceback.format_exc())
-            return False
-
-        try:
-            if int(pythonVersion[1]) >= 6:
-                self.mainLogger.debug('getCouchDBStatus: json read')
-                databases = json.loads(response)
-
-            else:
-                self.mainLogger.debug('getCouchDBStatus: minjson read')
-                databases = minjson.safeRead(response)
-
-        except Exception, e:
-            import traceback
-
-            self.mainLogger.error('Unable to load CouchDB database JSON - Exception = ' + traceback.format_exc())
-            return False
-
-        for dbName in databases:
-            endpoint = '/%s/' % dbName
-
-            try:
-                url = '%s%s' % (self.botConfig['CouchDBServer'], endpoint)
-                self.mainLogger.debug('getCouchDBStatus: attempting urlopen')
-                req = urllib2.Request(url, None, headers)
-
-                # Do the request, log any errors
-                request = urllib2.urlopen(req)
-                response = request.read()
-            except urllib2.HTTPError, e:
-                self.mainLogger.error('Unable to get CouchDB database status - HTTPError = ' + str(e))
-                return False
-
-            except urllib2.URLError, e:
-                self.mainLogger.error('Unable to get CouchDB database status - URLError = ' + str(e))
-                return False
-
-            except httplib.HTTPException, e:
-                self.mainLogger.error('Unable to get CouchDB database status - HTTPException = ' + str(e))
-                return False
-
-            except Exception, e:
-                import traceback
-
-                self.mainLogger.error('Unable to get CouchDB database status - Exception = ' + traceback.format_exc())
-                return False
-
-            try:
-                if int(pythonVersion[1]) >= 6:
-                    self.mainLogger.debug('getCouchDBStatus: json read')
-                    couchdb['databases'][dbName] = json.loads(response)
-
-                else:
-                    self.mainLogger.debug('getCouchDBStatus: minjson read')
-                    couchdb['databases'][dbName] = minjson.safeRead(response)
-
-            except Exception, e:
-                import traceback
-
-                self.mainLogger.error('Unable to load CouchDB database JSON - Exception = ' + traceback.format_exc())
-                return False
-
-        self.mainLogger.debug('getCouchDBStatus: completed, returning')
-        return couchdb
 
     def getCPUStats(self):
         self.mainLogger.debug('getCPUStats: start')
 
-        cpuStats = {}
+        cpuStats = dict()
 
         if sys.platform == 'linux2':
             self.mainLogger.debug('getCPUStats: linux2')
@@ -389,7 +110,7 @@ class checks:
 
                     values = re.findall(valueRegexp, row.replace(',', '.'))
 
-                    cpuStats[device] = {}
+                    cpuStats[device] = dict()
                     for headerIndex in range(0, len(headerNames)):
                         headerName = headerNames[headerIndex]
                         cpuStats[device][headerName] = values[headerIndex]
@@ -508,7 +229,7 @@ class checks:
     def getIOStats(self):
         self.mainLogger.debug('getIOStats: start')
 
-        ioStats = {}
+        ioStats = dict()
 
         if sys.platform == 'linux2':
             self.mainLogger.debug('getIOStats: linux2')
@@ -554,7 +275,7 @@ class checks:
                             # instances of [].
                             continue
 
-                        ioStats[device] = {}
+                        ioStats[device] = dict()
 
                         for headerIndex in range(0, len(headerNames)):
                             headerName = headerNames[headerIndex]
@@ -740,7 +461,7 @@ class checks:
 
             regexp = re.compile(r'([0-9]+)') # We run this several times so one-time compile now
 
-            meminfo = {}
+            meminfo = dict()
 
             self.mainLogger.debug('getMemoryUsage: parsing, looping')
 
@@ -761,7 +482,7 @@ class checks:
 
             self.mainLogger.debug('getMemoryUsage: parsing, looped')
 
-            memData = {}
+            memData = dict()
             memData['physFree'] = 0
             memData['physUsed'] = 0
             memData['cached'] = 0
@@ -1058,604 +779,11 @@ class checks:
             self.mainLogger.debug('getMemoryUsage: other platform, returning')
             return False
 
-    def getMongoDBStatus(self):
-        self.mainLogger.debug('getMongoDBStatus: start')
 
-        if 'MongoDBServer' not in self.botConfig or self.botConfig['MongoDBServer'] == '':
-            self.mainLogger.debug('getMongoDBStatus: config not set')
-            return False
 
-        self.mainLogger.debug('getMongoDBStatus: config set')
 
-        try:
-            import pymongo
-            from pymongo import Connection
 
-        except ImportError:
-            self.mainLogger.error('Unable to import pymongo library')
-            return False
 
-        # The dictionary to be returned.
-        mongodb = {}
-
-        try:
-            import urlparse
-
-            parsed = urlparse.urlparse(self.botConfig['MongoDBServer'])
-
-            mongoURI = ''
-
-            # Can't use attributes on Python 2.4
-            if parsed[0] != 'mongodb':
-                mongoURI = 'mongodb://'
-
-                if parsed[2]:
-                    if parsed[0]:
-                        mongoURI = mongoURI + parsed[0] + ':' + parsed[2]
-
-                    else:
-                        mongoURI = mongoURI + parsed[2]
-
-            else:
-                mongoURI = self.botConfig['MongoDBServer']
-
-            self.mainLogger.debug('-- mongoURI: %s', mongoURI)
-
-            conn = Connection(mongoURI, slave_okay=True)
-
-            self.mainLogger.debug('Connected to MongoDB')
-
-        except Exception, ex:
-            import traceback
-
-            self.mainLogger.error('Unable to connect to MongoDB server %s - Exception = ' + traceback.format_exc(),
-                mongoURI)
-            return False
-
-        # Older versions of pymongo did not support the command()
-        # method below.
-        try:
-            db = conn['local']
-
-            # Server status
-            statusOutput = db.command('serverStatus') # Shorthand for {'serverStatus': 1}
-
-            self.mainLogger.debug('getMongoDBStatus: executed serverStatus')
-
-            # Setup
-            import datetime
-
-            status = {}
-
-            # Version
-            try:
-                status['version'] = statusOutput['version']
-
-                self.mainLogger.debug('getMongoDBStatus: version ' + str(statusOutput['version']))
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: version KeyError exception - ' + str(ex))
-                pass
-
-            # Global locks
-            try:
-                self.mainLogger.debug('getMongoDBStatus: globalLock')
-
-                status['globalLock'] = {}
-                status['globalLock']['ratio'] = statusOutput['globalLock']['ratio']
-
-                status['globalLock']['currentQueue'] = {}
-                status['globalLock']['currentQueue']['total'] = statusOutput['globalLock']['currentQueue']['total']
-                status['globalLock']['currentQueue']['readers'] = statusOutput['globalLock']['currentQueue']['readers']
-                status['globalLock']['currentQueue']['writers'] = statusOutput['globalLock']['currentQueue']['writers']
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: globalLock KeyError exception - ' + str(ex))
-                pass
-
-            # Memory
-            try:
-                self.mainLogger.debug('getMongoDBStatus: memory')
-
-                status['mem'] = {}
-                status['mem']['resident'] = statusOutput['mem']['resident']
-                status['mem']['virtual'] = statusOutput['mem']['virtual']
-                status['mem']['mapped'] = statusOutput['mem']['mapped']
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: memory KeyError exception - ' + str(ex))
-                pass
-
-            # Connections
-            try:
-                self.mainLogger.debug('getMongoDBStatus: connections')
-
-                status['connections'] = {}
-                status['connections']['current'] = statusOutput['connections']['current']
-                status['connections']['available'] = statusOutput['connections']['available']
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: connections KeyError exception - ' + str(ex))
-                pass
-
-            # Extra info (Linux only)
-            try:
-                self.mainLogger.debug('getMongoDBStatus: extra info')
-
-                status['extraInfo'] = {}
-                status['extraInfo']['heapUsage'] = statusOutput['extra_info']['heap_usage_bytes']
-                status['extraInfo']['pageFaults'] = statusOutput['extra_info']['page_faults']
-
-            except KeyError, ex:
-                self.mainLogger.debug('getMongoDBStatus: extra info KeyError exception - ' + str(ex))
-                pass
-
-            # Background flushing
-            try:
-                self.mainLogger.debug('getMongoDBStatus: backgroundFlushing')
-
-                status['backgroundFlushing'] = {}
-                delta = datetime.datetime.utcnow() - statusOutput['backgroundFlushing']['last_finished']
-                status['backgroundFlushing']['secondsSinceLastFlush'] = delta.seconds
-                status['backgroundFlushing']['lastFlushLength'] = statusOutput['backgroundFlushing']['last_ms']
-                status['backgroundFlushing']['flushLengthAvrg'] = statusOutput['backgroundFlushing']['average_ms']
-
-            except KeyError, ex:
-                self.mainLogger.debug('getMongoDBStatus: backgroundFlushing KeyError exception - ' + str(ex))
-                pass
-
-            # Per second metric calculations (opcounts and asserts)
-            try:
-                if self.mongoDBStore is None:
-                    self.mainLogger.debug(
-                        'getMongoDBStatus: per second metrics no cached data, so storing for first time')
-                    self.setMongoDBStore(statusOutput)
-
-                else:
-                    self.mainLogger.debug('getMongoDBStatus: per second metrics cached data exists')
-
-                    accessesPS = float(statusOutput['indexCounters']['btree']['accesses'] -
-                                       self.mongoDBStore['indexCounters']['btree']['accessesPS']) / 60
-
-                    if accessesPS >= 0:
-                        status['indexCounters'] = {}
-                        status['indexCounters']['btree'] = {}
-                        status['indexCounters']['btree']['accessesPS'] = accessesPS
-                        status['indexCounters']['btree']['hitsPS'] = float(
-                            statusOutput['indexCounters']['btree']['hits'] -
-                            self.mongoDBStore['indexCounters']['btree']['hitsPS']) / 60
-                        status['indexCounters']['btree']['missesPS'] = float(
-                            statusOutput['indexCounters']['btree']['misses'] -
-                            self.mongoDBStore['indexCounters']['btree']['missesPS']) / 60
-                        status['indexCounters']['btree']['missRatioPS'] = float(
-                            statusOutput['indexCounters']['btree']['missRatio'] -
-                            self.mongoDBStore['indexCounters']['btree']['missRatioPS']) / 60
-
-                        status['opcounters'] = {}
-                        status['opcounters']['insertPS'] = float(
-                            statusOutput['opcounters']['insert'] - self.mongoDBStore['opcounters']['insertPS']) / 60
-                        status['opcounters']['queryPS'] = float(
-                            statusOutput['opcounters']['query'] - self.mongoDBStore['opcounters']['queryPS']) / 60
-                        status['opcounters']['updatePS'] = float(
-                            statusOutput['opcounters']['update'] - self.mongoDBStore['opcounters']['updatePS']) / 60
-                        status['opcounters']['deletePS'] = float(
-                            statusOutput['opcounters']['delete'] - self.mongoDBStore['opcounters']['deletePS']) / 60
-                        status['opcounters']['getmorePS'] = float(
-                            statusOutput['opcounters']['getmore'] - self.mongoDBStore['opcounters']['getmorePS']) / 60
-                        status['opcounters']['commandPS'] = float(
-                            statusOutput['opcounters']['command'] - self.mongoDBStore['opcounters']['commandPS']) / 60
-
-                        status['asserts'] = {}
-                        status['asserts']['regularPS'] = float(
-                            statusOutput['asserts']['regular'] - self.mongoDBStore['asserts']['regularPS']) / 60
-                        status['asserts']['warningPS'] = float(
-                            statusOutput['asserts']['warning'] - self.mongoDBStore['asserts']['warningPS']) / 60
-                        status['asserts']['msgPS'] = float(
-                            statusOutput['asserts']['msg'] - self.mongoDBStore['asserts']['msgPS']) / 60
-                        status['asserts']['userPS'] = float(
-                            statusOutput['asserts']['user'] - self.mongoDBStore['asserts']['userPS']) / 60
-                        status['asserts']['rolloversPS'] = float(
-                            statusOutput['asserts']['rollovers'] - self.mongoDBStore['asserts']['rolloversPS']) / 60
-
-                        self.setMongoDBStore(statusOutput)
-                    else:
-                        self.mainLogger.debug(
-                            'getMongoDBStatus: per second metrics negative value calculated, mongod likely restarted, so clearing cache')
-                        self.setMongoDBStore(statusOutput)
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: per second metrics KeyError exception - ' + str(ex))
-                pass
-
-            # Cursors
-            try:
-                self.mainLogger.debug('getMongoDBStatus: cursors')
-
-                status['cursors'] = {}
-                status['cursors']['totalOpen'] = statusOutput['cursors']['totalOpen']
-
-            except KeyError, ex:
-                self.mainLogger.error('getMongoDBStatus: cursors KeyError exception - ' + str(ex))
-                pass
-
-            # Replica set status
-            if 'MongoDBReplSet' in self.botConfig and self.botConfig['MongoDBReplSet'] == 'yes':
-                self.mainLogger.debug('getMongoDBStatus: get replset status too')
-
-                # isMaster (to get state
-                isMaster = db.command('isMaster')
-
-                self.mainLogger.debug('getMongoDBStatus: executed isMaster')
-
-                status['replSet'] = {}
-                status['replSet']['setName'] = isMaster['setName']
-                status['replSet']['isMaster'] = isMaster['ismaster']
-                status['replSet']['isSecondary'] = isMaster['secondary']
-
-                if 'arbiterOnly' in isMaster:
-                    status['replSet']['isArbiter'] = isMaster['arbiterOnly']
-
-                self.mainLogger.debug('getMongoDBStatus: finished isMaster')
-
-                # rs.status()
-                db = conn['admin']
-                replSet = db.command('replSetGetStatus')
-
-                self.mainLogger.debug('getMongoDBStatus: executed replSetGetStatus')
-
-                status['replSet']['myState'] = replSet['myState']
-
-                status['replSet']['members'] = {}
-
-                for member in replSet['members']:
-                    self.mainLogger.debug('getMongoDBStatus: replSetGetStatus looping - ' + str(member['name']))
-
-                    status['replSet']['members'][str(member['_id'])] = {}
-
-                    status['replSet']['members'][str(member['_id'])]['name'] = member['name']
-                    status['replSet']['members'][str(member['_id'])]['state'] = member['state']
-
-                    # Optime delta (only available from not self)
-                    # Calculation is from http://docs.python.org/library/datetime.html#datetime.timedelta.total_seconds
-                    if 'optimeDate' in member: # Only available as of 1.7.2
-                        deltaOptime = datetime.datetime.utcnow() - member['optimeDate']
-                        status['replSet']['members'][str(member['_id'])]['optimeDate'] = (deltaOptime.microseconds + (deltaOptime.seconds + deltaOptime.days * 24 * 3600) * 10 ** 6) / 10 ** 6
-
-                    if 'self' in member:
-                        status['replSet']['myId'] = member['_id']
-
-                    # Have to do it manually because total_seconds() is only available as of Python 2.7
-                    else:
-                        if 'lastHeartbeat' in member:
-                            deltaHeartbeat = datetime.datetime.utcnow() - member['lastHeartbeat']
-                            status['replSet']['members'][str(member['_id'])]['lastHeartbeat'] = (deltaHeartbeat.microseconds + (deltaHeartbeat.seconds + deltaHeartbeat.days * 24 * 3600) * 10 ** 6) / 10 ** 6
-
-                    if 'errmsg' in member:
-                        status['replSet']['members'][str(member['_id'])]['error'] = member['errmsg']
-
-            # db.stats()
-            if 'MongoDBDBStats' in self.botConfig and self.botConfig['MongoDBDBStats'] == 'yes':
-                self.mainLogger.debug('getMongoDBStatus: db.stats() too')
-
-                status['dbStats'] = {}
-
-                for database in conn.database_names():
-                    if database != 'config' and database != 'local' and database != 'admin' and database != 'test':
-                        self.mainLogger.debug('getMongoDBStatus: executing db.stats() for ' + str(database))
-
-                        status['dbStats'][database] = conn[database].command('dbstats')
-                        status['dbStats'][database]['namespaces'] = conn[database]['system']['namespaces'].count()
-
-                        # Ensure all strings to prevent JSON parse errors. We typecast on the server
-                        for key in status['dbStats'][database].keys():
-                            status['dbStats'][database][key] = str(status['dbStats'][database][key])
-
-
-        except Exception, ex:
-            import traceback
-
-            self.mainLogger.error('Unable to get MongoDB status - Exception = ' + traceback.format_exc())
-            return False
-
-        self.mainLogger.debug('getMongoDBStatus: completed, returning')
-
-        return status
-
-    def setMongoDBStore(self, statusOutput):
-        self.mongoDBStore = {}
-
-        self.mongoDBStore['indexCounters'] = {}
-        self.mongoDBStore['indexCounters']['btree'] = {}
-        self.mongoDBStore['indexCounters']['btree']['accessesPS'] = statusOutput['indexCounters']['btree']['accesses']
-        self.mongoDBStore['indexCounters']['btree']['hitsPS'] = statusOutput['indexCounters']['btree']['hits']
-        self.mongoDBStore['indexCounters']['btree']['missesPS'] = statusOutput['indexCounters']['btree']['misses']
-        self.mongoDBStore['indexCounters']['btree']['missRatioPS'] = statusOutput['indexCounters']['btree']['missRatio']
-
-        self.mongoDBStore['opcounters'] = {}
-        self.mongoDBStore['opcounters']['insertPS'] = statusOutput['opcounters']['insert']
-        self.mongoDBStore['opcounters']['queryPS'] = statusOutput['opcounters']['query']
-        self.mongoDBStore['opcounters']['updatePS'] = statusOutput['opcounters']['update']
-        self.mongoDBStore['opcounters']['deletePS'] = statusOutput['opcounters']['delete']
-        self.mongoDBStore['opcounters']['getmorePS'] = statusOutput['opcounters']['getmore']
-        self.mongoDBStore['opcounters']['commandPS'] = statusOutput['opcounters']['command']
-
-        self.mongoDBStore['asserts'] = {}
-        self.mongoDBStore['asserts']['regularPS'] = statusOutput['asserts']['regular']
-        self.mongoDBStore['asserts']['warningPS'] = statusOutput['asserts']['warning']
-        self.mongoDBStore['asserts']['msgPS'] = statusOutput['asserts']['msg']
-        self.mongoDBStore['asserts']['userPS'] = statusOutput['asserts']['user']
-        self.mongoDBStore['asserts']['rolloversPS'] = statusOutput['asserts']['rollovers']
-
-    def getMySQLStatus(self):
-        self.mainLogger.debug('getMySQLStatus: start')
-
-        if 'MySQLServer' in self.botConfig and 'MySQLUser' in self.botConfig and self.botConfig['MySQLServer'] != '' and self.botConfig['MySQLUser'] != '':
-            self.mainLogger.debug('getMySQLStatus: config')
-
-            # Try import MySQLdb - http://sourceforge.net/projects/mysql-python/files/
-            try:
-                import MySQLdb
-
-            except ImportError, e:
-                self.mainLogger.error('getMySQLStatus: unable to import MySQLdb')
-                return False
-
-            if 'MySQLPort' not in self.botConfig:
-                self.botConfig['MySQLPort'] = 3306
-
-            if 'MySQLSocket' not in self.botConfig:
-                # Connect
-                try:
-                    db = MySQLdb.connect(host=self.botConfig['MySQLServer'], user=self.botConfig['MySQLUser'],
-                        passwd=self.botConfig['MySQLPass'], port=int(self.botConfig['MySQLPort']))
-
-                except MySQLdb.OperationalError, message:
-                    self.mainLogger.error('getMySQLStatus: MySQL connection error (server): ' + str(message))
-                    return False
-
-            else:
-                # Connect
-                try:
-                    db = MySQLdb.connect(host='localhost', user=self.botConfig['MySQLUser'],
-                        passwd=self.botConfig['MySQLPass'], port=int(self.botConfig['MySQLPort']),
-                        unix_socket=self.botConfig['MySQLSocket'])
-
-                except MySQLdb.OperationalError, message:
-                    self.mainLogger.error('getMySQLStatus: MySQL connection error (socket): ' + str(message))
-                    return False
-
-            self.mainLogger.debug('getMySQLStatus: connected')
-
-            # Get MySQL version
-            if self.mysqlVersion is None:
-                self.mainLogger.debug('getMySQLStatus: mysqlVersion unset storing for first time')
-
-                try:
-                    cursor = db.cursor()
-                    cursor.execute('SELECT VERSION()')
-                    result = cursor.fetchone()
-
-                except MySQLdb.OperationalError, message:
-                    self.mainLogger.error('getMySQLStatus: MySQL query error when getting version: ' + str(message))
-
-                version = result[0].split(
-                    '-') # Case 31237. Might include a description e.g. 4.1.26-log. See http://dev.mysql.com/doc/refman/4.1/en/information-functions.html#function_version
-                version = version[0].split('.')
-
-                self.mysqlVersion = []
-
-                # Make sure the version is only an int. Case 31647
-                for string in version:
-                    number = re.match('([0-9]+)', string)
-                    number = number.group(0)
-                    self.mysqlVersion.append(number)
-
-            self.mainLogger.debug('getMySQLStatus: getting Connections')
-
-            # Connections
-            try:
-                cursor = db.cursor()
-                cursor.execute('SHOW STATUS LIKE "Connections"')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error('getMySQLStatus: MySQL query error when getting Connections: ' + str(message))
-
-            if self.mysqlConnectionsStore is None:
-                self.mainLogger.debug('getMySQLStatus: mysqlConnectionsStore unset storing for first time')
-
-                self.mysqlConnectionsStore = result[1]
-
-                connections = 0
-
-            else:
-                self.mainLogger.debug('getMySQLStatus: mysqlConnectionsStore set so calculating')
-                self.mainLogger.debug('getMySQLStatus: self.mysqlConnectionsStore = ' + str(self.mysqlConnectionsStore))
-                self.mainLogger.debug('getMySQLStatus: result = ' + str(result[1]))
-
-                connections = float(float(result[1]) - float(self.mysqlConnectionsStore)) / 60
-
-                self.mysqlConnectionsStore = result[1]
-
-            self.mainLogger.debug('getMySQLStatus: connections = ' + str(connections))
-
-            self.mainLogger.debug('getMySQLStatus: getting Connections - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Created_tmp_disk_tables')
-
-            # Created_tmp_disk_tables
-
-            # Determine query depending on version. For 5.02 and above we need the GLOBAL keyword (case 31015)
-            if int(self.mysqlVersion[0]) >= 5 and int(self.mysqlVersion[2]) >= 2:
-                query = 'SHOW GLOBAL STATUS LIKE "Created_tmp_disk_tables"'
-
-            else:
-                query = 'SHOW STATUS LIKE "Created_tmp_disk_tables"'
-
-            try:
-                cursor = db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error(
-                    'getMySQLStatus: MySQL query error when getting Created_tmp_disk_tables: ' + str(message))
-
-            createdTmpDiskTables = float(result[1])
-
-            self.mainLogger.debug('getMySQLStatus: createdTmpDiskTables = ' + str(createdTmpDiskTables))
-
-            self.mainLogger.debug('getMySQLStatus: getting Created_tmp_disk_tables - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Max_used_connections')
-
-            # Max_used_connections
-            try:
-                cursor = db.cursor()
-                cursor.execute('SHOW STATUS LIKE "Max_used_connections"')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error(
-                    'getMySQLStatus: MySQL query error when getting Max_used_connections: ' + str(message))
-
-            maxUsedConnections = result[1]
-
-            self.mainLogger.debug('getMySQLStatus: maxUsedConnections = ' + str(createdTmpDiskTables))
-
-            self.mainLogger.debug('getMySQLStatus: getting Max_used_connections - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Open_files')
-
-            # Open_files
-            try:
-                cursor = db.cursor()
-                cursor.execute('SHOW STATUS LIKE "Open_files"')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error('getMySQLStatus: MySQL query error when getting Open_files: ' + str(message))
-
-            openFiles = result[1]
-
-            self.mainLogger.debug('getMySQLStatus: openFiles = ' + str(openFiles))
-
-            self.mainLogger.debug('getMySQLStatus: getting Open_files - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Slow_queries')
-
-            # Slow_queries
-
-            # Determine query depending on version. For 5.02 and above we need the GLOBAL keyword (case 31015)
-            if int(self.mysqlVersion[0]) >= 5 and int(self.mysqlVersion[2]) >= 2:
-                query = 'SHOW GLOBAL STATUS LIKE "Slow_queries"'
-
-            else:
-                query = 'SHOW STATUS LIKE "Slow_queries"'
-
-            try:
-                cursor = db.cursor()
-                cursor.execute(query)
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error('getMySQLStatus: MySQL query error when getting Slow_queries: ' + str(message))
-
-            if self.mysqlSlowQueriesStore is None:
-                self.mainLogger.debug('getMySQLStatus: mysqlSlowQueriesStore unset so storing for first time')
-
-                self.mysqlSlowQueriesStore = result[1]
-
-                slowQueries = 0
-
-            else:
-                self.mainLogger.debug('getMySQLStatus: mysqlSlowQueriesStore set so calculating')
-                self.mainLogger.debug('getMySQLStatus: self.mysqlSlowQueriesStore = ' + str(self.mysqlSlowQueriesStore))
-                self.mainLogger.debug('getMySQLStatus: result = ' + str(result[1]))
-
-                slowQueries = float(float(result[1]) - float(self.mysqlSlowQueriesStore)) / 60
-
-                self.mysqlSlowQueriesStore = result[1]
-
-            self.mainLogger.debug('getMySQLStatus: slowQueries = ' + str(slowQueries))
-
-            self.mainLogger.debug('getMySQLStatus: getting Slow_queries - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Table_locks_waited')
-
-            # Table_locks_waited
-            try:
-                cursor = db.cursor()
-                cursor.execute('SHOW STATUS LIKE "Table_locks_waited"')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error(
-                    'getMySQLStatus: MySQL query error when getting Table_locks_waited: ' + str(message))
-
-            tableLocksWaited = float(result[1])
-
-            self.mainLogger.debug('getMySQLStatus: tableLocksWaited = ' + str(tableLocksWaited))
-
-            self.mainLogger.debug('getMySQLStatus: getting Table_locks_waited - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Threads_connected')
-
-            # Threads_connected
-            try:
-                cursor = db.cursor()
-                cursor.execute('SHOW STATUS LIKE "Threads_connected"')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error(
-                    'getMySQLStatus: MySQL query error when getting Threads_connected: ' + str(message))
-
-            threadsConnected = result[1]
-
-            self.mainLogger.debug('getMySQLStatus: threadsConnected = ' + str(threadsConnected))
-
-            self.mainLogger.debug('getMySQLStatus: getting Threads_connected - done')
-
-            self.mainLogger.debug('getMySQLStatus: getting Seconds_Behind_Master')
-
-            # Seconds_Behind_Master
-            try:
-                cursor = db.cursor(MySQLdb.cursors.DictCursor)
-                cursor.execute('SHOW SLAVE STATUS')
-                result = cursor.fetchone()
-
-            except MySQLdb.OperationalError, message:
-                self.mainLogger.error(
-                    'getMySQLStatus: MySQL query error when getting SHOW SLAVE STATUS: ' + str(message))
-                result = None
-
-            if result is not None:
-                try:
-                    secondsBehindMaster = result['Seconds_Behind_Master']
-
-                    self.mainLogger.debug('getMySQLStatus: secondsBehindMaster = ' + str(secondsBehindMaster))
-
-                except IndexError, e:
-                    secondsBehindMaster = None
-
-                    self.mainLogger.debug('getMySQLStatus: secondsBehindMaster empty')
-
-            else:
-                secondsBehindMaster = None
-
-                self.mainLogger.debug('getMySQLStatus: secondsBehindMaster empty')
-
-            self.mainLogger.debug('getMySQLStatus: getting Seconds_Behind_Master - done')
-
-            return {'connections': connections, 'createdTmpDiskTables': createdTmpDiskTables,
-                    'maxUsedConnections': maxUsedConnections, 'openFiles': openFiles, 'slowQueries': slowQueries,
-                    'tableLocksWaited': tableLocksWaited, 'threadsConnected': threadsConnected,
-                    'secondsBehindMaster': secondsBehindMaster}
-
-        else:
-            self.mainLogger.debug('getMySQLStatus: config not set')
-            return False
 
     def getNetworkTraffic(self):
         self.mainLogger.debug('getNetworkTraffic: start')
@@ -1686,7 +814,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsing, looping')
 
-            faces = {}
+            faces = dict()
             for line in lines[2:]:
                 if line.find(':') < 0: continue
                 face, data = line.split(':')
@@ -1695,7 +823,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsed, looping')
 
-            interfaces = {}
+            interfaces = dict()
 
             # Now loop through each interface
             for face in faces:
@@ -1705,7 +833,7 @@ class checks:
                 # then the next time we can calculate the difference
                 try:
                     if key in self.networkTrafficStore:
-                        interfaces[key] = {}
+                        interfaces[key] = dict()
                         interfaces[key]['recv_bytes'] = long(faces[face]['recv_bytes']) - long(
                             self.networkTrafficStore[key]['recv_bytes'])
                         interfaces[key]['trans_bytes'] = long(faces[face]['trans_bytes']) - long(
@@ -1725,7 +853,7 @@ class checks:
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
                     else:
-                        self.networkTrafficStore[key] = {}
+                        self.networkTrafficStore[key] = dict()
                         self.networkTrafficStore[key]['recv_bytes'] = faces[face]['recv_bytes']
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
@@ -1773,7 +901,7 @@ class checks:
             lines = netstat.split('\n')
 
             # Loop over available data for each inteface
-            faces = {}
+            faces = dict()
             rxKey = None
             txKey = None
 
@@ -1808,7 +936,7 @@ class checks:
 
             self.mainLogger.debug('getNetworkTraffic: parsed, looping')
 
-            interfaces = {}
+            interfaces = dict()
 
             # Now loop through each interface
             for face in faces:
@@ -1818,7 +946,7 @@ class checks:
                     # We need to work out the traffic since the last check so first time we store the current value
                     # then the next time we can calculate the difference
                     if key in self.networkTrafficStore:
-                        interfaces[key] = {}
+                        interfaces[key] = dict()
                         interfaces[key]['recv_bytes'] = long(faces[face]['recv_bytes']) - long(
                             self.networkTrafficStore[key]['recv_bytes'])
                         interfaces[key]['trans_bytes'] = long(faces[face]['trans_bytes']) - long(
@@ -1838,7 +966,7 @@ class checks:
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
                     else:
-                        self.networkTrafficStore[key] = {}
+                        self.networkTrafficStore[key] = dict()
                         self.networkTrafficStore[key]['recv_bytes'] = faces[face]['recv_bytes']
                         self.networkTrafficStore[key]['trans_bytes'] = faces[face]['trans_bytes']
 
@@ -1857,113 +985,7 @@ class checks:
 
             return False
 
-    def getNginxStatus(self):
-        self.mainLogger.debug('getNginxStatus: start')
 
-        if 'nginxStatusUrl' in self.botConfig and self.botConfig[
-                                                  'nginxStatusUrl'] != 'http://www.example.com/nginx_status':    # Don't do it if the status URL hasn't been provided
-            self.mainLogger.debug('getNginxStatus: config set')
-
-            try:
-                try:
-                    self.mainLogger.debug('getNginxStatus: attempting urlopen')
-
-                    # Force timeout using signals
-                    if not python24:
-                        signal.signal(signal.SIGALRM, self.signalHandler)
-                        signal.alarm(15)
-
-                    req = urllib2.Request(self.botConfig['nginxStatusUrl'], None, headers)
-
-                    # Do the request, log any errors
-                    request = urllib2.urlopen(req)
-                    response = request.read()
-
-                except urllib2.HTTPError, e:
-                    self.mainLogger.error('Unable to get Nginx status - HTTPError = ' + str(e))
-                    return False
-
-                except urllib2.URLError, e:
-                    self.mainLogger.error('Unable to get Nginx status - URLError = ' + str(e))
-                    return False
-
-                except httplib.HTTPException, e:
-                    self.mainLogger.error('Unable to get Nginx status - HTTPException = ' + str(e))
-                    return False
-
-                except Exception, e:
-                    import traceback
-
-                    self.mainLogger.error('Unable to get Nginx status - Exception = ' + traceback.format_exc())
-                    return False
-            finally:
-                if not python24:
-                    signal.alarm(0)
-
-            self.mainLogger.debug('getNginxStatus: urlopen success, start parsing')
-
-            # Thanks to http://hostingfu.com/files/nginx/nginxstats.py for this code
-
-            self.mainLogger.debug('getNginxStatus: parsing connections')
-
-            try:
-                # Connections
-                parsed = re.search(r'Active connections:\s+(\d+)', response)
-                connections = int(parsed.group(1))
-
-                self.mainLogger.debug('getNginxStatus: parsed connections')
-                self.mainLogger.debug('getNginxStatus: parsing reqs')
-
-                # Requests per second
-                parsed = re.search(r'\s*(\d+)\s+(\d+)\s+(\d+)', response)
-
-                if not parsed:
-                    self.mainLogger.debug('getNginxStatus: could not parse response')
-                    return False
-
-                requests = int(parsed.group(3))
-
-                self.mainLogger.debug('getNginxStatus: parsed reqs')
-
-                if self.nginxRequestsStore is None or self.nginxRequestsStore < 0:
-                    self.mainLogger.debug('getNginxStatus: no reqs so storing for first time')
-
-                    self.nginxRequestsStore = requests
-
-                    requestsPerSecond = 0
-
-                else:
-                    self.mainLogger.debug('getNginxStatus: reqs stored so calculating')
-                    self.mainLogger.debug('getNginxStatus: self.nginxRequestsStore = ' + str(self.nginxRequestsStore))
-                    self.mainLogger.debug('getNginxStatus: requests = ' + str(requests))
-
-                    requestsPerSecond = float(requests - self.nginxRequestsStore) / 60
-
-                    self.mainLogger.debug('getNginxStatus: requestsPerSecond = ' + str(requestsPerSecond))
-
-                    self.nginxRequestsStore = requests
-
-                if connections is not None and requestsPerSecond is not None:
-                    self.mainLogger.debug('getNginxStatus: returning with data')
-
-                    return {'connections': connections, 'reqPerSec': requestsPerSecond}
-
-                else:
-                    self.mainLogger.debug('getNginxStatus: returning without data')
-
-                    return False
-
-            except Exception, e:
-                import traceback
-
-                self.mainLogger.error('Unable to get Nginx status - %s - Exception = ' + traceback.format_exc(),
-                    response)
-                return False
-
-        else:
-            self.mainLogger.debug('getNginxStatus: config not set')
-
-            return False
 
     def getProcesses(self):
         self.mainLogger.debug('getProcesses: start')
@@ -2019,266 +1041,9 @@ class checks:
 
         return processes
 
-    def getRabbitMQStatus(self):
-        self.mainLogger.debug('getRabbitMQStatus: start')
 
-        if 'rabbitMQStatusUrl' not in self.botConfig or\
-           'rabbitMQUser' not in self.botConfig or\
-           'rabbitMQPass' not in self.botConfig or\
-           self.botConfig['rabbitMQStatusUrl'] == 'http://www.example.com:55672/json':
-            self.mainLogger.debug('getRabbitMQStatus: config not set')
-            return False
 
-        self.mainLogger.debug('getRabbitMQStatus: config set')
 
-        try:
-            try:
-                self.mainLogger.debug('getRabbitMQStatus: attempting authentication setup')
-
-                # Force timeout using signals
-                if not python24:
-                    signal.signal(signal.SIGALRM, self.signalHandler)
-                    signal.alarm(15)
-
-                manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
-                manager.add_password(None, self.botConfig['rabbitMQStatusUrl'], self.botConfig['rabbitMQUser'],
-                    self.botConfig['rabbitMQPass'])
-                handler = urllib2.HTTPBasicAuthHandler(manager)
-                opener = urllib2.build_opener(handler)
-                urllib2.install_opener(opener)
-
-                self.mainLogger.debug('getRabbitMQStatus: attempting urlopen')
-                req = urllib2.Request(self.botConfig['rabbitMQStatusUrl'], None, headers)
-
-                # Do the request, log any errors
-                request = urllib2.urlopen(req)
-                response = request.read()
-
-            except urllib2.HTTPError, e:
-                self.mainLogger.error('Unable to get RabbitMQ status - HTTPError = ' + str(e))
-                return False
-
-            except urllib2.URLError, e:
-                self.mainLogger.error('Unable to get RabbitMQ status - URLError = ' + str(e))
-                return False
-
-            except httplib.HTTPException, e:
-                self.mainLogger.error('Unable to get RabbitMQ status - HTTPException = ' + str(e))
-                return False
-
-            except Exception, e:
-                import traceback
-
-                self.mainLogger.error('Unable to get RabbitMQ status - Exception = ' + traceback.format_exc())
-                return False
-        finally:
-            if not python24:
-                signal.alarm(0)
-
-        try:
-            try:
-                # Force timeout using signals
-                if not python24:
-                    signal.signal(signal.SIGALRM, self.signalHandler)
-                    signal.alarm(15)
-
-                if int(pythonVersion[1]) >= 6:
-                    self.mainLogger.debug('getRabbitMQStatus: json read')
-                    status = json.loads(response)
-
-                else:
-                    self.mainLogger.debug('getRabbitMQStatus: minjson read')
-                    status = minjson.safeRead(response)
-
-                self.mainLogger.debug(status)
-
-                if 'connections' not in status:
-                    # We are probably using the newer RabbitMQ 2.x status plugin, so try to parse that instead.
-                    status = {}
-                    connections = {}
-                    queues = {}
-                    self.mainLogger.debug('getRabbitMQStatus: using 2.x management plugin data')
-                    import urlparse
-
-                    split_url = urlparse.urlsplit(self.botConfig['rabbitMQStatusUrl'])
-
-                    # Connections
-                    url = split_url[0] + '://' + split_url[1] + '/api/connections'
-                    self.mainLogger.debug('getRabbitMQStatus: attempting urlopen on %s', url)
-                    manager.add_password(None, url, self.botConfig['rabbitMQUser'], self.botConfig['rabbitMQPass'])
-                    req = urllib2.Request(url, None, headers)
-                    # Do the request, log any errors
-                    request = urllib2.urlopen(req)
-                    response = request.read()
-
-                    if int(pythonVersion[1]) >= 6:
-                        self.mainLogger.debug('getRabbitMQStatus: connections json read')
-                        connections = json.loads(response)
-                    else:
-                        self.mainLogger.debug('getRabbitMQStatus: connections minjson read')
-                        connections = minjson.safeRead(response)
-
-                    status['connections'] = len(connections)
-                    self.mainLogger.debug('getRabbitMQStatus: connections = %s', status['connections'])
-
-                    # Queues
-                    url = split_url[0] + '://' + split_url[1] + '/api/queues'
-                    self.mainLogger.debug('getRabbitMQStatus: attempting urlopen on %s', url)
-                    manager.add_password(None, url, self.botConfig['rabbitMQUser'], self.botConfig['rabbitMQPass'])
-                    req = urllib2.Request(url, None, headers)
-                    # Do the request, log any errors
-                    request = urllib2.urlopen(req)
-                    response = request.read()
-
-                    if int(pythonVersion[1]) >= 6:
-                        self.mainLogger.debug('getRabbitMQStatus: queues json read')
-                        queues = json.loads(response)
-                    else:
-                        self.mainLogger.debug('getRabbitMQStatus: queues minjson read')
-                        queues = minjson.safeRead(response)
-
-                    status['queues'] = queues
-                    self.mainLogger.debug(status['queues'])
-
-            except Exception, e:
-                import traceback
-
-                self.mainLogger.error('Unable to load RabbitMQ status JSON - Exception = ' + traceback.format_exc())
-                return False
-        finally:
-            if not python24:
-                signal.alarm(0)
-
-        self.mainLogger.debug('getRabbitMQStatus: completed, returning')
-
-        # Fix for queues with the same name (case 32788)
-        for queue in status.get('queues', []):
-            vhost = queue.get('vhost', '/')
-            if vhost == '/':
-                continue
-
-            queue['name'] = '%s/%s' % (vhost, queue['name'])
-
-        return status
-
-        #
-        # Plugins
-        #
-
-    def getPlugins(self):
-        self.mainLogger.debug('getPlugins: start')
-
-        if 'pluginDirectory' in self.botConfig and self.botConfig['pluginDirectory'] != '':
-            if not os.access(self.botConfig['pluginDirectory'], os.R_OK) :
-                self.mainLogger.warning('getPlugins: Plugin path %s is set but not readable by bot. Skipping plugins.'
-                    , self.botConfig['pluginDirectory'])
-
-                return False
-
-        else:
-            return False
-
-        # Have we already imported the plugins?
-        # Only load the plugins once
-        if self.plugins is None:
-            self.mainLogger.debug('getPlugins: initial load from ' + self.botConfig['pluginDirectory'])
-
-            sys.path.append(self.botConfig['pluginDirectory'])
-
-            self.plugins = []
-            plugins = []
-
-            # Loop through all the plugin files
-            for root, dirs, files in os.walk(self.botConfig['pluginDirectory']):
-                for name in files:
-                    self.mainLogger.debug('getPlugins: considering: ' + name)
-
-                    name = name.split('.', 1)
-
-                    # Only pull in .py files (ignores others, inc .pyc files)
-                    try:
-                        if name[1] == 'py':
-                            self.mainLogger.debug('getPlugins: ' + name[0] + '.' + name[1] + ' is a plugin')
-
-                            plugins.append(name[0])
-
-                    except IndexError, e:
-                        continue
-
-            # Loop through all the found plugins, import them then create new objects
-            for pluginName in plugins:
-                self.mainLogger.debug('getPlugins: loading ' + pluginName)
-
-                pluginPath = os.path.join(self.botConfig['pluginDirectory'], '%s.py' % pluginName)
-
-                if not os.access(pluginPath, os.R_OK) :
-                    self.mainLogger.error('getPlugins: Unable to read %s so skipping this plugin.', pluginPath)
-                    continue
-
-                try:
-                    # Import the plugin, but only from the pluginDirectory (ensures no conflicts with other module names elsehwhere in the sys.path
-                    import imp
-
-                    importedPlugin = imp.load_source(pluginName, pluginPath)
-
-                    self.mainLogger.debug('getPlugins: imported ' + pluginName)
-
-                    # Find out the class name and then instantiate it
-                    pluginClass = getattr(importedPlugin, pluginName)
-
-                    try:
-                        pluginObj = pluginClass(self.botConfig, self.mainLogger, self.rawConfig)
-
-                    except TypeError:
-                        try:
-                            pluginObj = pluginClass(self.botConfig, self.mainLogger)
-                        except TypeError:
-                            # Support older plugins.
-                            pluginObj = pluginClass()
-
-                    self.mainLogger.debug('getPlugins: instantiated ' + pluginName)
-
-                    # Store in class var so we can execute it again on the next cycle
-                    self.plugins.append(pluginObj)
-
-                except Exception, ex:
-                    import traceback
-
-                    self.mainLogger.error('getPlugins (' + pluginName + '): exception = ' + traceback.format_exc())
-
-        # Now execute the objects previously created
-        if self.plugins is not None:
-            self.mainLogger.debug('getPlugins: executing plugins')
-
-            # Execute the plugins
-            output = {}
-
-            for plugin in self.plugins:
-                self.mainLogger.info('getPlugins: executing ' + plugin.__class__.__name__)
-
-                try:
-                    output[plugin.__class__.__name__] = plugin.run()
-
-                except Exception, ex:
-                    import traceback
-
-                    self.mainLogger.error('getPlugins: exception = ' + traceback.format_exc())
-
-                self.mainLogger.info('getPlugins: executed ' + plugin.__class__.__name__)
-
-            self.mainLogger.debug('getPlugins: returning')
-
-            # Each plugin should output a dictionary so we can convert it to JSON later
-            return output
-
-        else:
-            self.mainLogger.debug('getPlugins: no plugins, returning false')
-
-            return False
-
-            #
-            # Postback
-            #
 
     def doPostBack(self, postBackData):
         self.mainLogger.debug('doPostBack: start')
@@ -2355,18 +1120,11 @@ class checks:
         self.mainLogger.debug('doChecks: start')
 
         # Do the checks
-        apacheStatus = self.getApacheStatus()
         diskUsage = self.getDiskUsage()
         loadAvrgs = self.getLoadAvrgs()
         memory = self.getMemoryUsage()
-        mysqlStatus = self.getMySQLStatus()
         networkTraffic = self.getNetworkTraffic()
-        nginxStatus = self.getNginxStatus()
         processes = self.getProcesses()
-        rabbitmq = self.getRabbitMQStatus()
-        mongodb = self.getMongoDBStatus()
-        couchdb = self.getCouchDBStatus()
-        plugins = self.getPlugins()
         ioStats = self.getIOStats();
         cpuStats = self.getCPUStats();
 
@@ -2379,7 +1137,7 @@ class checks:
 
         self.mainLogger.info('doChecks: bot key = ' + self.botConfig['bot_key'])
 
-        checksData = {}
+        checksData = dict()
 
         # Basic payload items
         checksData['os'] = self.os
