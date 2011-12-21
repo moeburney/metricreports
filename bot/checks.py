@@ -1,11 +1,7 @@
 
-# SO references
-# http://stackoverflow.com/questions/446209/possible-values-from-sys-platform/446210#446210
-# http://stackoverflow.com/questions/682446/splitting-out-the-output-of-ps-using-python/682464#682464
-# http://stackoverflow.com/questions/1052589/how-can-i-parse-the-output-of-proc-net-dev-into-keyvalue-pairs-per-interface-us
 
 # Core modules
-import httplib # Used only for handling httplib.HTTPException (case #26701)
+import httplib
 import os
 import platform
 import re
