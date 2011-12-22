@@ -70,15 +70,6 @@ try:
 
     botConfig['pidfileDirectory'] = botConfig['tmpDirectory']
 
-    # Plugin config
-    if config.has_option('Main', 'plugin_directory'):
-        botConfig['pluginDirectory'] = config.get('Main', 'plugin_directory')
-
-    # Optional config
-    # Also do not need to be present in the config file (case 28326).
-    if config.has_option('Main', 'apache_status_url'):
-        botConfig['apacheStatusUrl'] = config.get('Main', 'apache_status_url')
-
     if config.has_option('Main', 'logging_level'):
         # Maps log levels from the configuration file to Python log levels
         loggingLevelMapping = {

@@ -21,7 +21,7 @@
 
 botPATH="/home/rohan/src/metricreports/bot/bot.py"
 botUSER="rohan"
-PIDPATH="/home/rohan/.mt-bot/"
+PIDPATH="/var/run/mt-bot"
 
 [ -f $botPATH ] || echo $botPATH "not found"
 

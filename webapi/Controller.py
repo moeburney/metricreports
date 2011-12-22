@@ -1,4 +1,6 @@
 import os
+import threading
+import Util
 
 __author__ = 'rohan'
 
@@ -16,9 +18,23 @@ app = bottle.app()
 @post("/:ts/:stz/postback/")
 @bottle.view("testing")
 def handler(ts,stz):
-    print "HASH ==> "+bottle.request.POST['hash']
-    print "PAYLOAD ==> "+bottle.request.POST['payload']
-    return dict(request=bottle.request,ts=ts,stz=stz)
+
+    hash = bottle.request.POST['hash']
+    data = bottle.request.POST['payload']
+    print "HASH ==> "+hash
+    print "PAYLOAD ==> "+data
+
+    if Util.checkHash(hash,data):
+        print "$$$%%% Hash OK $$$%%%"
+        account = bottle.request.urlparts[1].split(".")[0]
+        ip  = str(bottle.request['REMOTE_ADDR'])
+        print "saving data for server %s " % ip
+        print "saving data for account %s " % account
+        Util.saveData(account,ip,ts,stz,data)
+
+        print "saved data for account %s " % account
+        return "success"
+    return "error"
 
 @get('/main')
 
