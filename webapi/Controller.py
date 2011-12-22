@@ -25,11 +25,8 @@ def handler(ts,stz):
     print "PAYLOAD ==> "+data
 
     if Util.checkHash(hash,data):
-        print "$$$%%% Hash OK $$$%%%"
         account = bottle.request.urlparts[1].split(".")[0]
         ip  = str(bottle.request['REMOTE_ADDR'])
-        print "saving data for server %s " % ip
-        print "saving data for account %s " % account
         Util.saveData(account,ip,ts,stz,data)
 
         print "saved data for account %s " % account
