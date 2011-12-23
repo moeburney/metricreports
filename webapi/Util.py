@@ -9,7 +9,10 @@ import keys
 __author__ = 'rohan'
 
 import pymongo
+from sendmail import Sendmail
 connection = pymongo.Connection('localhost', 27017)
+sender = Sendmail()
+sender.set_debuglevel(True)
 AlertsCheckInterval  = 30
 def startalertthread():
     s = sched.scheduler(time.time, time.sleep)
@@ -37,7 +40,8 @@ def handleAlert(openalert):
         openAlertsColl = db[keys.OPEN_ALERTS_PREFIX+openalert[keys.SERVER_PUBLIC_IP].replace(".","")]
         openAlertsColl.update({keys.OPEN_ALERT_AID:openalert[keys.OPEN_ALERT_AID]},{"$set":{keys.OPEN_ALERT_COUNT:count}},safe=True)
 def sendemail(emaillist,subject,body,otherinfo):
-    return
+    finalbody = "Subject: %s \n\n %s \n %s" %(subject,otherinfo,body)
+    sender.sendmail("mail@testing.com",emaillist,finalbody)
 def getOpenAlerts(account):
     db = getdb(account,prefix=False)
     collNames = db.collection_names()
@@ -81,16 +85,20 @@ def processNext(account,ip,ts,stz,rawdata):
     metadata = {keys.SERVER_PUBLIC_IP:__ip,keys.SERVER_NICKNAME:data['internalHostname'],keys.ACC_BOT_KEY:data["bot_key"],'lts':int(ts)}
 
     try:
-        metacoll.insert(metadata,safe=True)
+        metacoll.update({},metadata,safe=True)
         id =datacoll.insert(data,safe=True)
         print "Operation : Insert  id [%s]" % id
         print "Check for Alerts for id [%s]"% id
         checkAlerts(account,__ip)
     except OperationFailure,e:
         print str(e)
+
+
 def saveData(account,ip,ts,stz,rawdata):
     print "starting save thread"
     threading.Thread(target=processNext,args=(account,ip,ts,stz,rawdata)).start()
+
+
 def checkAlerts(account,ip):
     alerts = getAlertsForIp(account,ip)
     if alerts == 0 or alerts is None:
@@ -122,10 +130,16 @@ def checkAlerts(account,ip):
                 createOpenAlert(keys.ALERT_LOADAVG,alert[keys.OID],tonotify,data,account,ip)
             if not isLoadAvgAlert:
                 removeOldAlert(account,ip,alert[keys.OID])
+
+
 def removeOldAlert(account,ip,aid):
     db = getdb(account)
     openAlertsColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
     openAlertsColl.update({keys.OPEN_ALERT_AID:aid},{"$set":{keys.OPEN_ALERT_STATUS:keys.OPEN_ALERT_STATUS_OFF}},safe=True)
+
+
+
+
 def createOpenAlert(ty,alertid,notifylist,data,account,ip):
     db = getdb(account)
     openalertColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
@@ -145,6 +159,10 @@ def createOpenAlert(ty,alertid,notifylist,data,account,ip):
 
 def getLatestSnapShot(account,ip):
     return getLastXSnapShot(account,ip,1)
+
+
+
+
 def checkDiskAlert(alert):
     hddName = alert[keys.ALERT_MAIN_OPERAND]
     ip = alert[keys.ALERT_FOR_IP]
@@ -188,6 +206,9 @@ def checkDiskAlert(alert):
                     if phdd < rightoperand:
                         return True,"Alert, Disk Space used(%%) for partition %s is less than %s" %(hddName,rightoperand)
     return False,""
+
+
+
 def checkProcessAlert(alert):
     ProcessName = alert[keys.ALERT_MAIN_OPERAND]
     ip = alert[keys.ALERT_FOR_IP]
@@ -211,7 +232,10 @@ def checkProcessAlert(alert):
             return True,"Alert Process which contain %s does not exist" %ProcessName
 
     return False,""
-def checkRamAlert(alert,ip):
+
+
+
+def checkRamAlert(alert):
     ip = alert[keys.ALERT_FOR_IP]
     account = alert[keys.ALERT_FOR_ACCOUNT]
     option = alert[keys.ALERT_MAJOR_OPTION]
@@ -241,6 +265,9 @@ def checkRamAlert(alert,ip):
             if free < rightoperand:
                 return True,"Alert, Physical Memory free is less than %s" %rightoperand
     return False,""
+
+
+
 def checkLoadAvgAlert(alert):
     ip = alert[keys.ALERT_FOR_IP]
     account = alert[keys.ALERT_FOR_ACCOUNT]
@@ -262,6 +289,8 @@ def checkLoadAvgAlert(alert):
         if loadavg < rightoperand:
             return True,"Alert, LoadAverage is less than %s" %rightoperand
     return False,""
+
+
 def getAlertsForIp(account,ip):
     db = getdb(account)
     alertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
@@ -272,11 +301,14 @@ def getAlertsForIp(account,ip):
         return 0
     return alerts
 
+
 def mean(numberList):
     if len(numberList) == 0:
         return float('nan')
     floatNums = [float(x) for x in numberList]
     return sum(floatNums) / len(numberList)
+
+
 
 def getLastXSnapShot(account,ip,count):
     db = getdb(account)
