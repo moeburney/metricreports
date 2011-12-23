@@ -1,13 +1,63 @@
 from hashlib import md5
 import json
+import sched
 import threading
 from pymongo.errors import OperationFailure
+import time
 import keys
 
 __author__ = 'rohan'
 
 import pymongo
 connection = pymongo.Connection('localhost', 27017)
+AlertsCheckInterval  = 30
+def startalertthread():
+    s = sched.scheduler(time.time, time.sleep)
+    doAlertChecks()
+    s.run()
+    return
+def doAlertChecks():
+    accounts = getAccounts()
+    for account in accounts:
+        openalerts = getOpenAlerts(account)
+        for item in openalerts:
+            handleAlert(item)
+    sc.enter(AlertsCheckInterval, 1, doAlertChecks)
+threading.Thread(target=startalertthread).start()
+
+def handleAlert(openalert):
+    if openalert[keys.OPEN_ALERT_STATUS] == keys.OPEN_ALERT_STATUS_ON:
+        count = openalert[keys.OPEN_ALERT_COUNT]
+        if count>0:
+            accountinfo = getaccountinfostr(openalert[keys.ACC_PREFIX],openalert[keys.SERVER_PUBLIC_IP])
+            while count>0:
+                sendemail(openalert[keys.OPEN_ALERT_TONOTIFY],openalert[keys.ALERT_TYPE_STR],openalert[keys.OPEN_ALERT_DATA],accountinfo)
+                count -= 1
+        db = getdb(openalert[keys.ACC_PREFIX])
+        openAlertsColl = db[keys.OPEN_ALERTS_PREFIX+openalert[keys.SERVER_PUBLIC_IP].replace(".","")]
+        openAlertsColl.update({keys.OPEN_ALERT_AID:openalert[keys.OPEN_ALERT_AID]},{"$set":{keys.OPEN_ALERT_COUNT:count}},safe=True)
+def sendemail(emaillist,subject,body,otherinfo):
+    return
+def getOpenAlerts(account):
+    db = getdb(account,prefix=False)
+    collNames = db.collection_names()
+    openAlerts = []
+    for name in collNames:
+        if keys.OPEN_ALERTS_PREFIX in name:
+            coll = db[name]
+            openAlerts.extend(getAll(coll))
+    return openAlerts
+def getAllOpenAlerts(coll):
+    items = []
+    for item in coll.find({keys.OPEN_ALERT_STATUS:keys.OPEN_ALERT_STATUS_ON}):
+        items.append(item)
+    return items
+def getAccounts():
+    accounts = []
+    for dbname in connection.database_names():
+        if keys.ACC_PREFIX in dbname:
+            accounts.append(dbname)
+    return accounts
 def checkHash(hash,data):
     currenthash = md5(data).hexdigest()
     if currenthash == hash:
@@ -50,31 +100,48 @@ def checkAlerts(account,ip):
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_DISK:
             isDiskAlert,data = checkDiskAlert(alert)
             if isDiskAlert:
-                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
+                createOpenAlert(keys.ALERT_DISK,alert[keys.OID],tonotify,data,account,ip)
+            if not isDiskAlert:
+                removeOldAlert(account,ip,alert[keys.OID])
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_PROCESS:
             isProcessAlert,data = checkProcessAlert(alert)
             if isProcessAlert:
                 # save the alert
-                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
+                createOpenAlert(keys.ALERT_PROCESS,alert[keys.OID],tonotify,data,account,ip)
+            if not isProcessAlert:
+                removeOldAlert(account,ip,alert[keys.OID])
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_RAM:
             isRamAlert,data = checkRamAlert(alert)
             if isRamAlert:
-                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
+                createOpenAlert(keys.ALERT_RAM,alert[keys.OID],tonotify,data,account,ip)
+            if not isRamAlert:
+                removeOldAlert(account,ip,alert[keys.OID])
         if alert[keys.ALERT_LOADAVG] == keys.ALERT_LOADAVG:
             isLoadAvgAlert,data = checkLoadAvgAlert(alert)
             if isLoadAvgAlert:
-                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
-def createOpenAlert(alertid,notifylist,data,account,ip):
+                createOpenAlert(keys.ALERT_LOADAVG,alert[keys.OID],tonotify,data,account,ip)
+            if not isLoadAvgAlert:
+                removeOldAlert(account,ip,alert[keys.OID])
+def removeOldAlert(account,ip,aid):
+    db = getdb(account)
+    openAlertsColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
+    openAlertsColl.update({keys.OPEN_ALERT_AID:aid},{"$set":{keys.OPEN_ALERT_STATUS:keys.OPEN_ALERT_STATUS_OFF}},safe=True)
+def createOpenAlert(ty,alertid,notifylist,data,account,ip):
     db = getdb(account)
     openalertColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
     openalert = dict()
+    openalert[keys.TIMESTAMP] = time.time()
+    openalert[keys.ACC_PREFIX] = account
+    openalert[keys.SERVER_PUBLIC_IP] = ip
+    openalert[keys.ALERT_TYPE_STR] = ty
     openalert[keys.OPEN_ALERT_TONOTIFY] = notifylist
     openalert[keys.OPEN_ALERT_DATA] = data
     openalert[keys.OPEN_ALERT_AID] = alertid
     openalert[keys.OPEN_ALERT_FOR] = 0
     openalert[keys.OPEN_ALERT_EVERY] = 0
+    openalert[keys.OPEN_ALERT_STATUS] = keys.OPEN_ALERT_STATUS_ON
     openalert = openalertColl.find_and_modify(query={keys.OPEN_ALERT_AID:alertid},update=openalertColl,upsert=True,new=True)
-    openalertColl.update({keys.OID:openalert[keys.OID]},{"$inc":{keys.OPEN_ALERT_COUNT:1}})
+    openalertColl.update({keys.OID:openalert[keys.OID]},{"$inc":{keys.OPEN_ALERT_COUNT:1}},safe=True)
 
 def getLatestSnapShot(account,ip):
     return getLastXSnapShot(account,ip,1)
@@ -217,5 +284,7 @@ def getLastXSnapShot(account,ip,count):
     return dataColl.find().sort({keys.TIMESTAMP:pymongo.DESCENDING}).limit(count)
 
 
-def getdb(account):
+def getdb(account,prefix=True):
+    if not prefix:
+        return connection[account]
     return connection[keys.ACC_PREFIX+account]

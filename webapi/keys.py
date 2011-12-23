@@ -49,3 +49,6 @@ OPEN_ALERT_DATA = "dat"
 OPEN_ALERT_COUNT = "cnt"
 OPEN_ALERT_EVERY = "evry" # interval of communication
 OPEN_ALERT_FOR = "for"  # duration of communication
+OPEN_ALERT_STATUS = "sts"
+OPEN_ALERT_STATUS_ON = "on"
+OPEN_ALERT_STATUS_OFF = "off"
