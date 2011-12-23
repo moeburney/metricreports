@@ -14,19 +14,6 @@ connection = pymongo.Connection('localhost', 27017)
 sender = Sendmail()
 sender.set_debuglevel(True)
 AlertsCheckInterval  = 30
-def startalertthread():
-    s = sched.scheduler(time.time, time.sleep)
-    doAlertChecks()
-    s.run()
-    return
-def doAlertChecks():
-    accounts = getAccounts()
-    for account in accounts:
-        openalerts = getOpenAlerts(account)
-        for item in openalerts:
-            handleAlert(item)
-    sc.enter(AlertsCheckInterval, 1, doAlertChecks)
-threading.Thread(target=startalertthread).start()
 
 def handleAlert(openalert):
     if openalert[keys.OPEN_ALERT_STATUS] == keys.OPEN_ALERT_STATUS_ON:
@@ -68,6 +55,23 @@ def checkHash(hash,data):
         print "currhash ==> %s == %s" %(currenthash,hash)
         return True
     return False
+
+def doAlertChecks(sc):
+    print "checking alerts thread"
+    accounts = getAccounts()
+    for account in accounts:
+        openalerts = getOpenAlerts(account)
+        for item in openalerts:
+            handleAlert(item)
+    sc.enter(AlertsCheckInterval, 1, doAlertChecks,(sc,))
+
+def startalertthread():
+    s = sched.scheduler(time.time,time.sleep)
+    doAlertChecks(s)
+    s.run()
+    return
+threading.Thread(target=startalertthread).start()
+
 
 def processNext(account,ip,ts,stz,rawdata):
     data = json.loads(rawdata)
