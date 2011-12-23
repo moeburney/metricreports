@@ -43,31 +43,39 @@ def saveData(account,ip,ts,stz,rawdata):
     threading.Thread(target=processNext,args=(account,ip,ts,stz,rawdata)).start()
 def checkAlerts(account,ip):
     alerts = getAlertsForIp(account,ip)
-    if alerts == 0:
+    if alerts == 0 or alerts is None:
         return
     for alert in alerts:
         tonotify = alert[keys.ALERT_SEND_EMAIL] # currently just email.
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_DISK:
             isDiskAlert,data = checkDiskAlert(alert)
             if isDiskAlert:
-                sendemail(tonotify,data)
+                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_PROCESS:
             isProcessAlert,data = checkProcessAlert(alert)
             if isProcessAlert:
-                sendemail(tonotify,data)
+                # save the alert
+                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_RAM:
             isRamAlert,data = checkRamAlert(alert)
             if isRamAlert:
-                sendemail(tonotify,data)
+                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
         if alert[keys.ALERT_LOADAVG] == keys.ALERT_LOADAVG:
             isLoadAvgAlert,data = checkLoadAvgAlert(alert)
             if isLoadAvgAlert:
-                sendemail(tonotify,data)
+                createOpenAlert(alert[keys.OID],tonotify,data,account,ip)
+def createOpenAlert(alertid,notifylist,data,account,ip):
+    db = getdb(account)
+    openalertColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
+    openalert = dict()
+    openalert[keys.OPEN_ALERT_TONOTIFY] = notifylist
+    openalert[keys.OPEN_ALERT_DATA] = data
+    openalert[keys.OPEN_ALERT_AID] = alertid
+    openalert[keys.OPEN_ALERT_FOR] = 0
+    openalert[keys.OPEN_ALERT_EVERY] = 0
+    openalert = openalertColl.find_and_modify(query={keys.OPEN_ALERT_AID:alertid},update=openalertColl,upsert=True,new=True)
+    openalertColl.update({keys.OID:openalert[keys.OID]},{"$inc":{keys.OPEN_ALERT_COUNT:1}})
 
-    # get serverid from alerts array, and check for alert and do action
-    #getAlertsFor(account,ip)
-    #iterate of alerts, check process alert, disk usage alert, memory alerts. load average alert. [ process alert only check exists, all other check greater than]
-    # if alert found, put it in openalerts for the account,
 def getLatestSnapShot(account,ip):
     return getLastXSnapShot(account,ip,1)
 def checkDiskAlert(alert):
@@ -170,7 +178,7 @@ def checkLoadAvgAlert(alert):
     ip = alert[keys.ALERT_FOR_IP]
     account = alert[keys.ALERT_FOR_ACCOUNT]
     operator = alert[keys.ALERT_OPERATOR]
-    option = alert[keys.ALERT_MAJOR_OPTION]
+    option = alert[keys.ALERT_MAJOR_OPTION] # enter minutes till load avg is the rightoperand
     rightoperand = alert[keys.ALERT_SEC_OPERAND]
     lastfewSnapShots = getLastXSnapShots(account,ip,option)
     loadlist = []
@@ -187,9 +195,9 @@ def checkLoadAvgAlert(alert):
         if loadavg < rightoperand:
             return True,"Alert, LoadAverage is less than %s" %rightoperand
     return False,""
-def getAlertsForIp(account):
+def getAlertsForIp(account,ip):
     db = getdb(account)
-    alertscoll = db[keys.ACC_SAVED_ALERTS+ip.replace(".","")]
+    alertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
     alerts = alertscoll.find({keys.ACC_ALERTS_APPLYTO:ip})
     if alerts is None:
         return 0
@@ -200,7 +208,6 @@ def getAlertsForIp(account):
 def mean(numberList):
     if len(numberList) == 0:
         return float('nan')
-
     floatNums = [float(x) for x in numberList]
     return sum(floatNums) / len(numberList)
 

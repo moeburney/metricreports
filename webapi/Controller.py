@@ -7,7 +7,6 @@ __author__ = 'rohan'
 
 from bottle import route, get, post,error
 import bottle
-import json
 
 bottle.debug()
 os.chdir(os.path.dirname(__file__))

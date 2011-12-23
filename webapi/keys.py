@@ -1,5 +1,6 @@
 __author__ = 'rohan'
 UID = "uuid"
+OID = "_id"
 TIMESTAMP = "ts"
 SERVER_TIME_ZONE= "stz"
 SERVER_PUBLIC_IP = "pip"
@@ -10,7 +11,8 @@ META_PREFIX = "meta_"
 SERVER_PRIVATE_NAME = "pname"
 SERVER_NICKNAME = "nick"
 ACC_BOT_KEY = "key"
-ACC_SAVED_ALERTS = "saved_alerts"
+SAVED_ALERTS_PREFIX = "saved_alerts_"
+OPEN_ALERTS_PREFIX = "open_alerts_"
 ACC_ALERTS_APPLYTO = "alfor"
 
 ALERT_PROCESS = "process_alert"
@@ -39,3 +41,11 @@ PROCESSES = "prs"
 MEM_USED = "memPhysUsed"
 MEM_FREE = "memPhysFree"
 LOADAVG = "loadAvrg"
+
+OPEN_ALERT_AID = "aid"
+
+OPEN_ALERT_TONOTIFY = "emails" # later change to id of tonotify collection where we specify android and emails etc
+OPEN_ALERT_DATA = "dat"
+OPEN_ALERT_COUNT = "cnt"
+OPEN_ALERT_EVERY = "evry" # interval of communication
+OPEN_ALERT_FOR = "for"  # duration of communication
