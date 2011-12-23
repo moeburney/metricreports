@@ -15,6 +15,14 @@ SAVED_ALERTS_PREFIX = "saved_alerts_"
 OPEN_ALERTS_PREFIX = "open_alerts_"
 ACC_ALERTS_APPLYTO = "alfor"
 
+
+RESULT_STR = "result"
+RESULT_ERROR = "error"
+RESULT_SUCCESS = "success"
+REASON_STR = "reason"
+REASON_INVALID_LOGIN = "invalid login"
+
+
 ALERT_PROCESS = "process_alert"
 ALERT_DISK = "disk_alert"
 ALERT_RAM = "ram_alert"
@@ -52,3 +60,17 @@ OPEN_ALERT_FOR = "for"  # duration of communication
 OPEN_ALERT_STATUS = "sts"
 OPEN_ALERT_STATUS_ON = "on"
 OPEN_ALERT_STATUS_OFF = "off"
+
+USERS_COLL = "users"
+USER_NICK = "unick"
+USER_PEMAIL = "email"
+USER_CPASSWD = "passwd"
+USER_GTOKEN = "gtok"
+USER_GTOKEN_SECRET = "gtok_sec"
+USER_TTOKEN = "ttok"
+USER_TTOKEN_SECRET = "ttok_sec"
+USER_FTOKEN = "ftok"
+USER_FTOKEN_SECRET = "ftok_sec"
+USER_OPENID = "uoid"
+USER_SALT = "salt"
+USER_UID = "uid"

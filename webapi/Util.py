@@ -69,12 +69,9 @@ def doAlertChecks():
     t.start()
 
 def initalert():
-    print "started new thread"
-
-    t = threading.Timer(AlertsCheckInterval, doAlertChecks)
+    t = threading.Timer(1, doAlertChecks)
     t.setDaemon(True)
     t.start()
-    print "started new thread"
 
 
 def processNext(account,ip,ts,stz,rawdata):
@@ -328,3 +325,16 @@ def getdb(account,prefix=True):
     if not prefix:
         return connection[account]
     return connection[keys.ACC_PREFIX+account]
+
+import bcrypt
+def auth(account,user,rawpasswd):
+    db = getdb(account)
+    userColl = db[keys.USERS_COLL]
+    user = userColl.find_one({keys.USER_PEMAIL:user})
+    if not user:
+        return None
+    hashed = user[keys.USER_CPASSWD]
+    if bcrypt.hashpw(rawpasswd, hashed) == hashed:
+        return user
+def getSubDomain(request):
+    return request.urlparts[1].split(".")[0]
