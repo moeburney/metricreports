@@ -5,7 +5,7 @@ import threading
 from pymongo.errors import OperationFailure
 import time
 import keys
-
+from threading import Timer
 __author__ = 'rohan'
 
 import pymongo
@@ -13,8 +13,8 @@ from sendmail import Sendmail
 connection = pymongo.Connection('localhost', 27017)
 sender = Sendmail()
 sender.set_debuglevel(True)
-AlertsCheckInterval  = 30
-
+AlertsCheckInterval  = 30.0
+t= None
 def handleAlert(openalert):
     if openalert[keys.OPEN_ALERT_STATUS] == keys.OPEN_ALERT_STATUS_ON:
         count = openalert[keys.OPEN_ALERT_COUNT]
@@ -56,21 +56,23 @@ def checkHash(hash,data):
         return True
     return False
 
-def doAlertChecks(sc):
+def doAlertChecks():
+    global t
     print "checking alerts thread"
     accounts = getAccounts()
     for account in accounts:
         openalerts = getOpenAlerts(account)
         for item in openalerts:
             handleAlert(item)
-    sc.enter(AlertsCheckInterval, 1, doAlertChecks,(sc,))
+    t = Timer(AlertsCheckInterval,doAlertChecks)
+    t.start()
 
-def startalertthread():
-    s = sched.scheduler(time.time,time.sleep)
-    doAlertChecks(s)
-    s.run()
-    return
-threading.Thread(target=startalertthread).start()
+def initalert():
+    print "started new thread"
+
+    t = threading.Timer(AlertsCheckInterval, doAlertChecks)
+    t.start()
+    print "started new thread"
 
 
 def processNext(account,ip,ts,stz,rawdata):

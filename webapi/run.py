@@ -1,3 +1,6 @@
+import threading
+import Util
+
 __author__ = 'rohan'
 
 
@@ -14,9 +17,13 @@ args = parser.parse_args()
 if("dev" in args.env):
 
     print "### Running app in development environment"
+    Util.initalert()
+
     call("uwsgi -s 127.0.0.1:8090 -w Controller --callable app -p 4 -M -t 20 --limit-as 200 -m -T ",shell=True)
     #bottle.run(host='localhost', port=int(args.port), app=app)
 if("prod" in args.env):
 
     print "### Running app in production environment"
+    Util.initalert()
+
     call("uwsgi -s 127.0.0.1:8090 -w Controller --callable app  -p 4 -M -t 20 --limit-as 200 -m -T ",shell=True)
