@@ -65,12 +65,14 @@ def doAlertChecks():
         for item in openalerts:
             handleAlert(item)
     t = Timer(AlertsCheckInterval,doAlertChecks)
+    t.setDaemon(True)
     t.start()
 
 def initalert():
     print "started new thread"
 
     t = threading.Timer(AlertsCheckInterval, doAlertChecks)
+    t.setDaemon(True)
     t.start()
     print "started new thread"
 
