@@ -31,6 +31,7 @@ def handleAlert(openalert):
 def sendemail(emaillist,subject,body,otherinfo):
     finalbody = "Subject: %s \n\n %s \n %s" %(subject,otherinfo,body)
     sender.sendmail("mail@testing.com",emaillist,finalbody)
+
 def getOpenAlerts(account):
     db = getdb(account,prefix=False)
     collNames = db.collection_names()
@@ -38,7 +39,7 @@ def getOpenAlerts(account):
     for name in collNames:
         if keys.OPEN_ALERTS_PREFIX in name:
             coll = db[name]
-            openAlerts.extend(getAll(coll))
+            openAlerts.extend(getAllOpenAlerts(coll))
     return openAlerts
 def getAllOpenAlerts(coll):
     items = []
@@ -165,7 +166,7 @@ def createOpenAlert(ty,alertid,notifylist,data,account,ip):
     openalertColl.update({keys.OID:openalert[keys.OID]},{"$inc":{keys.OPEN_ALERT_COUNT:1}},safe=True)
 
 def getLatestSnapShot(account,ip):
-    return getLastXSnapShot(account,ip,1)
+    return getLastXSnapShot(account,ip,1).next()
 
 
 
@@ -320,7 +321,7 @@ def mean(numberList):
 def getLastXSnapShot(account,ip,count):
     db = getdb(account)
     dataColl = db[keys.DATA_PREFIX+ip.replace(".","")]
-    return dataColl.find().sort({keys.TIMESTAMP:pymongo.DESCENDING}).limit(count)
+    return dataColl.find().sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(count)
 
 
 def getdb(account,prefix=True):
