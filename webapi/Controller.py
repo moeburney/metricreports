@@ -1,6 +1,8 @@
+import json
 import os
 import threading
 from beaker.middleware import SessionMiddleware
+from pymongo import json_util
 import Util
 import keys
 
@@ -70,16 +72,15 @@ def login(account,user, passwd):
         return
 @post('/login')
 def handler():
-    login(Util.getSubDomain(bottle.request),bottle.request.POST.get('user'), bottle.request.POST.get('passwd'))
+    login(Util.getSubDomain(bottle.request),bottle.request.POST.get('email'), bottle.request.POST.get('passwd'))
     if not validate_login():
         return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:keys.REASON_INVALID_LOGIN}
     return {keys.RESULT_STR:keys.RESULT_SUCCESS}
 
-
 @get('/logout')
 def handler():
     logout()
-    bottle.redirect(url_root)
+    bottle.redirect('/index.html')
 @post("/:ts/:stz/postback/")
 @bottle.view("testing")
 def handler(ts,stz):
@@ -98,11 +99,16 @@ def handler(ts,stz):
         return "success"
     return "error"
 
+@post('/users')
+def handler():
+    return Util.createUser(Util.getSubDomain(bottle.request),bottle.request.POST['email'],bottle.request.POST['passwd'])
+
+@get('/servers')
+@auth()
+def handler():
+    return json.dumps(Util.getServers(Util.getSubDomain(bottle.request)),default=json_util.default)
 @get('/test')
 @auth()
 def handler():
     print "reached here"
     return "hi"
-@error(404)
-def handler():
-    return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"Page not found"}

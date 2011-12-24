@@ -1,7 +1,9 @@
 from hashlib import md5
 import json
 import sched
+import string
 import threading
+import uuid
 from pymongo.errors import OperationFailure
 import time
 import keys
@@ -327,10 +329,10 @@ def getdb(account,prefix=True):
     return connection[keys.ACC_PREFIX+account]
 
 import bcrypt
-def auth(account,user,rawpasswd):
+def auth(account,email,rawpasswd):
     db = getdb(account)
     userColl = db[keys.USERS_COLL]
-    user = userColl.find_one({keys.USER_PEMAIL:user})
+    user = userColl.find_one({keys.USER_PEMAIL:email})
     if not user:
         return None
     hashed = user[keys.USER_CPASSWD]
@@ -338,3 +340,21 @@ def auth(account,user,rawpasswd):
         return user
 def getSubDomain(request):
     return request.urlparts[1].split(".")[0]
+
+def createUser(account,email,passwd):
+    db = getdb(account)
+    userColl = db[keys.USERS_COLL]
+    checkifexists = userColl.find_one({keys.USER_PEMAIL:email})
+    return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"Email Already Exists"}
+    cpasswd = bcrypt.hashpw(passwd,bcrypt.gensalt())
+    newuser = {keys.USER_PEMAIL:email,keys.USER_CPASSWD:cpasswd,keys.USER_UID:str(uuid.uuid4())}
+    id = userColl.insert(newuser,safe=True)
+    return userColl.find_one({keys.OID:id})
+def getServers(account):
+    db  = getdb(account)
+    allColls = db.collection_names()
+    metalist = []
+    for coll in allColls:
+        if keys.META_PREFIX in coll:
+            metalist.append(db[coll].find_one())
+    return metalist
