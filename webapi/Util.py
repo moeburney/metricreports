@@ -359,3 +359,8 @@ def getServers(account):
         if keys.META_PREFIX in coll:
             metalist.append(db[coll].find_one())
     return metalist
+def getServerMeta(account,ip):
+    db = getdb(account)
+    meta = db[keys.META_PREFIX+ip.replace(".","")]
+
+    return meta.find_one({keys.SERVER_PUBLIC_IP:ip})

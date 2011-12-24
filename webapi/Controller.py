@@ -107,6 +107,21 @@ def handler():
 @auth()
 def handler():
     return json.dumps(Util.getServers(Util.getSubDomain(bottle.request)),default=json_util.default)
+
+@get('/servers/:ip')
+@auth()
+def handler(ip):
+    return json.dumps(Util.getLatestSnapShot(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+
+@get('/servers/:ip/alerts')
+@bottle.view('new_alert')
+@auth()
+def handler(ip):
+    return dict()
+@get('/servers/:ip/meta')
+@auth()
+def handler(ip):
+    return json.dumps(Util.getServerMeta(Util.getSubDomain(bottle.request),ip),default=json_util.default)
 @get('/test')
 @auth()
 def handler():
