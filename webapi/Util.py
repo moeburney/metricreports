@@ -9,13 +9,15 @@ from pymongo.errors import OperationFailure
 import time
 import keys
 from threading import Timer
+from sendemail import sendMail
+
 __author__ = 'rohan'
 
 import pymongo
 from sendmail import Sendmail
 connection = pymongo.Connection('localhost', 27017)
-sender = Sendmail()
-sender.set_debuglevel(True)
+gmailUser = "r0nk4nu@gmail.com"
+gmailPassword = "gotohome"
 AlertsCheckInterval  = 30.0
 t= None
 def handleAlert(openalert):
@@ -30,9 +32,10 @@ def handleAlert(openalert):
         openAlertsColl = db[keys.OPEN_ALERTS_PREFIX+openalert[keys.SERVER_PUBLIC_IP].replace(".","")]
         openAlertsColl.update({keys.OPEN_ALERT_AID:openalert[keys.OPEN_ALERT_AID]},{"$set":{keys.OPEN_ALERT_COUNT:count}},safe=True)
 def sendemail(emaillist,subject,body,otherinfo):
-    finalbody = "Subject: %s \n\n %s \n %s" %(subject,otherinfo,body)
-    print finalbody
-    #sender.sendmail("mail@testing.com",emaillist,finalbody)
+    finalbody = "Account info : %s \n\n Problem: %s" %(otherinfo,body)
+    for email in emaillist:
+        sendMail(gmailUser,gmailPassword,email,subject,finalbody)
+
 def getOpenAlerts(account):
     db = getdb(account,prefix=False)
     collNames = db.collection_names()

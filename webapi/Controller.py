@@ -21,7 +21,7 @@ bottle.TEMPLATE_PATH.insert(0,'./static')
 
 session_opts = {
     'session.auto': True,
-    'session.timeout': 3000,
+    'session.timeout': 300,
     'session.type': 'ext:database',
     'session.url': 'mysql://rohan:gotohome@localhost/ron',
     'session.key': 'campaignsession',
@@ -101,7 +101,7 @@ def handler(ts,stz):
 
 @post('/users')
 def handler():
-    return Util.createUser(Util.getSubDomain(bottle.request),bottle.request.POST['email'],bottle.request.POST['passwd'])
+    return json.dumps(Util.createUser(Util.getSubDomain(bottle.request),bottle.request.POST['email'],bottle.request.POST['passwd']),default=json_util.default,ensure_ascii=False)
 
 @get('/users')
 @auth()
