@@ -22,7 +22,7 @@ def handleAlert(openalert):
     if openalert[keys.OPEN_ALERT_STATUS] == keys.OPEN_ALERT_STATUS_ON:
         count = openalert[keys.OPEN_ALERT_COUNT]
         if count>0:
-            accountinfo = json.dumps(getServerMeta(openalert[keys.ACC_PREFIX],openalert[keys.SERVER_PUBLIC_IP]),default=json_util.default)
+            accountinfo = json.dumps(getServerMeta(openalert[keys.ACC_PREFIX],openalert[keys.SERVER_PUBLIC_IP]),default=json_util.default,ensure_ascii=False)
             while count>0:
                 sendemail(openalert[keys.OPEN_ALERT_TONOTIFY],openalert[keys.ALERT_TYPE_STR],openalert[keys.OPEN_ALERT_DATA],accountinfo)
                 count -= 1
@@ -158,7 +158,7 @@ def createOpenAlert(ty,alertid,notifylist,data,account,ip):
     db = getdb(account)
     openalertColl = db[keys.OPEN_ALERTS_PREFIX+ip.replace(".","")]
     openalert = dict()
-    openalert[keys.TIMESTAMP] = time.time()
+    openalert[keys.TIMESTAMP] = int(time.time())
     openalert[keys.ACC_PREFIX] = account
     openalert[keys.SERVER_PUBLIC_IP] = ip
     openalert[keys.ALERT_TYPE_STR] = ty
