@@ -103,6 +103,15 @@ def handler(ts,stz):
 def handler():
     return Util.createUser(Util.getSubDomain(bottle.request),bottle.request.POST['email'],bottle.request.POST['passwd'])
 
+@get('/users')
+@auth()
+def handler():
+    raw_users =  Util.getUsers(Util.getSubDomain(bottle.request))
+    users = []
+
+    for user in raw_users:
+        users.append(user)
+    return json.dumps(users,default=json_util.default)
 @get('/servers')
 @auth()
 def handler():
@@ -119,6 +128,10 @@ def handler(ip):
 def handler(ip):
     return json.dumps(Util.getLatestDiskOverView(Util.getSubDomain(bottle.request),ip),default=json_util.default)
 
+@get('/servers/:ip/processes')
+@auth()
+def handler(ip):
+    return json.dumps(Util.getLatestProcessOverView(Util.getSubDomain(bottle.request),ip),default=json_util.default)
 
 @get('/servers/:ip/alerts')
 @bottle.view('new_alert')
@@ -127,6 +140,17 @@ def handler(ip):
     if bottle.request.get_header("Accept") == "application/json":
         return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
     return dict()
+
+@get('/servers/:ip/alerts.json')
+@bottle.view('new_alert')
+@auth()
+def handler(ip):
+    raw_alerts = Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip)
+    alerts = []
+    for alert in raw_alerts:
+        alerts.append(alert)
+    return json.dumps(alerts,default=json_util.default)
+
 
 
 @get('/servers/:ip/diskalert')

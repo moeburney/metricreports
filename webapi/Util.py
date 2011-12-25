@@ -4,6 +4,7 @@ import sched
 import string
 import threading
 import uuid
+from bson import json_util
 from pymongo.errors import OperationFailure
 import time
 import keys
@@ -21,7 +22,7 @@ def handleAlert(openalert):
     if openalert[keys.OPEN_ALERT_STATUS] == keys.OPEN_ALERT_STATUS_ON:
         count = openalert[keys.OPEN_ALERT_COUNT]
         if count>0:
-            accountinfo = getaccountinfostr(openalert[keys.ACC_PREFIX],openalert[keys.SERVER_PUBLIC_IP])
+            accountinfo = json.dumps(getServerMeta(openalert[keys.ACC_PREFIX],openalert[keys.SERVER_PUBLIC_IP]),default=json_util.default)
             while count>0:
                 sendemail(openalert[keys.OPEN_ALERT_TONOTIFY],openalert[keys.ALERT_TYPE_STR],openalert[keys.OPEN_ALERT_DATA],accountinfo)
                 count -= 1
@@ -30,8 +31,8 @@ def handleAlert(openalert):
         openAlertsColl.update({keys.OPEN_ALERT_AID:openalert[keys.OPEN_ALERT_AID]},{"$set":{keys.OPEN_ALERT_COUNT:count}},safe=True)
 def sendemail(emaillist,subject,body,otherinfo):
     finalbody = "Subject: %s \n\n %s \n %s" %(subject,otherinfo,body)
-    sender.sendmail("mail@testing.com",emaillist,finalbody)
-
+    print finalbody
+    #sender.sendmail("mail@testing.com",emaillist,finalbody)
 def getOpenAlerts(account):
     db = getdb(account,prefix=False)
     collNames = db.collection_names()
@@ -91,9 +92,12 @@ def processNext(account,ip,ts,stz,rawdata):
     datacoll = db[keys.DATA_PREFIX+ip]
     metacoll= db[keys.META_PREFIX+ip]  #update brief details about server and etc
     metadata = {keys.SERVER_PUBLIC_IP:__ip,keys.SERVER_NICKNAME:data['internalHostname'],keys.ACC_BOT_KEY:data["bot_key"],'lts':int(ts)}
-
     try:
-        metacoll.update({},metadata,safe=True)
+        metaexists = metacoll.find({keys.SERVER_PUBLIC_IP:metadata[keys.SERVER_PUBLIC_IP]}).count()>0
+        if metaexists:
+            metacoll.update({keys.SERVER_PUBLIC_IP:metadata[keys.SERVER_PUBLIC_IP]},metadata,safe=True)
+        else:
+            metacoll.insert(metadata,safe=True)
         id =datacoll.insert(data,safe=True)
         print "Operation : Insert  id [%s]" % id
         print "Check for Alerts for id [%s]"% id
@@ -110,8 +114,10 @@ def saveData(account,ip,ts,stz,rawdata):
 def checkAlerts(account,ip):
     alerts = getAlertsForIp(account,ip)
     if alerts == 0 or alerts is None:
+        print "alerts do not exist"
         return
     for alert in alerts:
+        print "checking alert %s with type %s" % (alert[keys.OID],alert[keys.ALERT_TYPE_STR])
         tonotify = alert[keys.ALERT_SEND_EMAIL] # currently just email.
         if alert[keys.ALERT_TYPE_STR] == keys.ALERT_DISK:
             isDiskAlert,data = checkDiskAlert(alert)
@@ -132,7 +138,7 @@ def checkAlerts(account,ip):
                 createOpenAlert(keys.ALERT_RAM,alert[keys.OID],tonotify,data,account,ip)
             if not isRamAlert:
                 removeOldAlert(account,ip,alert[keys.OID])
-        if alert[keys.ALERT_LOADAVG] == keys.ALERT_LOADAVG:
+        if alert[keys.ALERT_TYPE_STR] == keys.ALERT_LOADAVG:
             isLoadAvgAlert,data = checkLoadAvgAlert(alert)
             if isLoadAvgAlert:
                 createOpenAlert(keys.ALERT_LOADAVG,alert[keys.OID],tonotify,data,account,ip)
@@ -162,7 +168,7 @@ def createOpenAlert(ty,alertid,notifylist,data,account,ip):
     openalert[keys.OPEN_ALERT_FOR] = 0
     openalert[keys.OPEN_ALERT_EVERY] = 0
     openalert[keys.OPEN_ALERT_STATUS] = keys.OPEN_ALERT_STATUS_ON
-    openalert = openalertColl.find_and_modify(query={keys.OPEN_ALERT_AID:alertid},update=openalertColl,upsert=True,new=True)
+    openalert = openalertColl.find_and_modify(query={keys.OPEN_ALERT_AID:alertid},update=openalert,upsert=True,new=True)
     openalertColl.update({keys.OID:openalert[keys.OID]},{"$inc":{keys.OPEN_ALERT_COUNT:1}},safe=True)
 
 def getLatestSnapShot(account,ip):
@@ -174,7 +180,15 @@ def getLatestDiskOverView(account,ip):
 def getLastXDiskOverView(account,ip,count):
     db = getdb(account)
     dataColl = db[keys.DATA_PREFIX+ip.replace(".","")]
-    return dataColl.find(fields={keys.SERVER_DISK_USAGE:1}).sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(count)
+    return dataColl.find(fields={keys.SERVER_DISK_USAGE:1}).sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(int(count))
+
+def getLatestProcessOverView(account,ip):
+    return getLastXProcessOverView(account,ip,1).next()
+
+def getLastXProcessOverView(account,ip,count):
+    db = getdb(account)
+    dataColl = db[keys.DATA_PREFIX+ip.replace(".","")]
+    return dataColl.find(fields={keys.PROCESSES:1}).sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(int(count))
 
 
 def checkDiskAlert(alert):
@@ -186,7 +200,7 @@ def checkDiskAlert(alert):
     rightoperand = alert[keys.ALERT_SEC_OPERAND]
     latestSnapShot = getLatestSnapShot(account,ip)
     for hdd in latestSnapShot[keys.SERVER_DISK_USAGE]:
-        if hddName == hdd[0]:
+        if hddName == hdd[5]:
             if option == keys.USED:
                 if operator == keys.OPERATOR_GREATER:
                     if hdd[2] > rightoperand:
@@ -308,7 +322,7 @@ def checkLoadAvgAlert(alert):
 def getAlertsForIp(account,ip):
     db = getdb(account)
     alertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
-    alerts = alertscoll.find({keys.ACC_ALERTS_APPLYTO:ip})
+    alerts = alertscoll.find({keys.ALERT_FOR_IP:ip})
     if alerts is None:
         return 0
     if alerts.count() <=0:
@@ -327,7 +341,8 @@ def mean(numberList):
 def getLastXSnapShot(account,ip,count):
     db = getdb(account)
     dataColl = db[keys.DATA_PREFIX+ip.replace(".","")]
-    return dataColl.find().sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(count)
+    print "gettin last %s snapshots" %count
+    return dataColl.find().sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(int(count))
 
 
 def getdb(account,prefix=True):
@@ -351,8 +366,9 @@ def getSubDomain(request):
 def createUser(account,email,passwd):
     db = getdb(account)
     userColl = db[keys.USERS_COLL]
-    checkifexists = userColl.find_one({keys.USER_PEMAIL:email})
-    return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"Email Already Exists"}
+    alreadyexists = userColl.find({keys.USER_PEMAIL:email}).count()>0
+    if alreadyexists:
+        return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"Email/User Already Exists"}
     cpasswd = bcrypt.hashpw(passwd,bcrypt.gensalt())
     newuser = {keys.USER_PEMAIL:email,keys.USER_CPASSWD:cpasswd,keys.USER_UID:str(uuid.uuid4())}
     id = userColl.insert(newuser,safe=True)
@@ -377,24 +393,56 @@ def createDiskAlert(account,ip,params):
     alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
     alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
     alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
-    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+    alert[keys.ALERT_TYPE_STR] = keys.ALERT_DISK
+    db = getdb(account)
+    savedalertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
+    if savedalertscoll.find(spec=alert).count()>0:
+        return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"already exists"}
+    newalert = savedalertscoll.find_and_modify(query=alert,update=alert,upsert=True,new=True)
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":newalert}
+
+
 def createProcessAlert(account,ip,params):
     alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAIN_OPERAND:params[keys.ALERT_MAIN_OPERAND]}
     alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
     alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+    alert[keys.ALERT_TYPE_STR] = keys.ALERT_PROCESS
+    db = getdb(account)
+    savedalertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
+    if savedalertscoll.find(spec=alert).count()>0:
+        return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"already exists"}
+    newalert = savedalertscoll.find_and_modify(query=alert,update=alert,upsert=True,new=True)
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":newalert}
 
-    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+
 def createRamAlert(account,ip,params):
     alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAJOR_OPTION:params[keys.ALERT_MAJOR_OPTION]}
     alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
     alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
     alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+    alert[keys.ALERT_TYPE_STR] = keys.ALERT_RAM
+    db = getdb(account)
+    savedalertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
+    if savedalertscoll.find(spec=alert).count()>0:
+        return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"already exists"}
+    newalert = savedalertscoll.find_and_modify(query=alert,update=alert,upsert=True,new=True)
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":newalert}
 
-    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
 def createLoadAvgAlert(account,ip,params):
     alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAJOR_OPTION:params[keys.ALERT_MAJOR_OPTION]}
     alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
     alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
     alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+    alert[keys.ALERT_TYPE_STR] = keys.ALERT_LOADAVG
+    db = getdb(account)
+    savedalertscoll = db[keys.SAVED_ALERTS_PREFIX+ip.replace(".","")]
+    if savedalertscoll.find(spec=alert).count()>0:
+        return {keys.RESULT_STR:keys.RESULT_ERROR,keys.REASON_STR:"already exists"}
+    newalert = savedalertscoll.find_and_modify(query=alert,update=alert,upsert=True,new=True)
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":newalert}
 
-    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+def getUsers(account):
+    db = getdb(account)
+    userColl = db[keys.USERS_COLL]
+    return userColl.find(fields={keys.USER_PEMAIL:1,keys.USER_UID:1})
+

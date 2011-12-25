@@ -2,12 +2,12 @@
 <html>
 <head>
     <title></title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+
 </head>
 <body>
 <form action="diskalert" method="POST">
-    <select name="op1" required>
-        <option value="disk1">Disk1</option>
-        <option value="disk2">Disk2</option>
+    <select id="op1"  name="op1" required>
     </select>
     <br/>
     <select name="mopt" required>
@@ -22,15 +22,39 @@
         <option value="lt">Less than</option>
     </select>
     <br/>
-    <input type="number" name="op2" required/>
+     <label for="size">Size in GB: </label> <input id="size" type="number" name="op2" required/>
     <br/>
-    <select name="ase" multiple required>
-        <option value="email1">admin@admin.com</option>
-        <option value="email2">user@admin.com</option>
+    <select id="ase" name="ase" multiple required>
     </select>
     <br/>
     <input type="submit" value="Create Alert"/>
 
 </form>
+<script>
+    $(function(){
+
+        var emails = [];
+        $.getJSON("/users", function(result) {
+            for (var i = 0; i < result.length; i++) {
+                emails.push('<option value="',
+                        result[i].email, '">',
+                        result[i].email, '</option>');
+            }
+            $("#ase").html(emails.join(''));
+        });
+         var disks = [];
+        $.getJSON("disks", function(result) {
+            result = result.diskUsage
+            for (var i = 0; i < result.length; i++) {
+                disks.push('<option value="',
+                        result[i][5], '">',
+                        result[i][5], '</option>');
+            }
+            $("#op1").html(disks.join(''));
+        });
+
+
+    })
+</script>
 </body>
 </html>

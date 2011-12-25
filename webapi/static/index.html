@@ -5,6 +5,19 @@
     <title></title>
 </head>
 <body>
-Web ui here
+<a href="login.html">Login</a><a href="logout">Logout</a>
+<a href="servers">Servers</a>
+
+<br/><br/>
+
+<h3>Create New user</h3>
+<form action="users" method="POST">
+    <input type="email" placeholder="email" required name="email"/>
+    <br/>
+    <input type="password" placeholder="Password" required name="passwd"/>
+    <br/>
+    <input type="submit" value="Create User"/>
+</form>
+
 </body>
 </html>

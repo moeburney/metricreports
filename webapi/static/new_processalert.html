@@ -7,15 +7,11 @@
 <body>
 <h2>Alert if Process does not exist</h2>
 <form action="processalert" method="POST">
-    <input id="opt"  type="checkbox" name="opt" value="nt_exts">Complete name</input><br/>
-    <select name="op1" required>
-        <option value="disk1">process1</option>
-        <option value="disk2">process2</option>
+    <input id="opt"  type="checkbox" name="opt" value="nt_exts" required checked>Complete name</input><br/>
+    <select id="op1" name="op1" required>
     </select>
     <br/>
-    <select name="ase" multiple required>
-        <option value="email1">admin@admin.com</option>
-        <option value="email2">user@admin.com</option>
+    <select id="ase" name="ase" multiple required>
     </select>
 <br/>
     <input type="submit" value="Create Alert"/>
@@ -24,6 +20,26 @@
 <script>
 $(function(){
 
+    var emails = [];
+    $.getJSON("/users", function(result) {
+        for (var i = 0; i < result.length; i++) {
+            emails.push('<option value="',
+                    result[i].email, '">',
+                    result[i].email, '</option>');
+        }
+        $("#ase").html(emails.join(''));
+    });
+    
+    var processnames = [];
+    $.getJSON("disks", function(result) {
+        result = result.processes
+        for (var i = 0; i < result.length; i++) {
+            processnames.push('<option value="',
+                    result[i][10], '">',
+                    result[i][10], '</option>');
+        }
+        $("#op1").html(processnames.join(''));
+    });
 
 })
 </script>

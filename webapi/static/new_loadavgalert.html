@@ -2,6 +2,8 @@
 <html>
 <head>
     <title></title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+
 </head>
 <body>
 <h3>Load Average</h3>
@@ -17,14 +19,28 @@
     <label for="time">For minutes: </label><input id="time" type="number" name="mopt"/>
 
     <br/>
-    <select name="ase" multiple required>
-        <option value="email1">admin@admin.com</option>
-        <option value="email2">user@admin.com</option>
+    <select id="ase" name="ase" multiple required>
     </select>
     <br/>
     <input type="submit" value="Create Alert"/>
 
 </form>
+<script>
+    $(function(){
+
+        var emails = [];
+        $.getJSON("/users", function(result) {
+            for (var i = 0; i < result.length; i++) {
+                emails.push('<option value="',
+                        result[i].email, '">',
+                        result[i].email, '</option>');
+            }
+            $("#ase").html(emails.join(''));
+        });
+
+
+    })
+</script>
 
 </body>
 </html>

@@ -9,7 +9,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(True, False)
 
     def test_createUser(self):
-        user = Util.createUser("example","customerservice103@gmail.com","gotohome")
+        user = Util.createUser("example","admin@admin.com","admin")
         print user
         self.assertIsNotNone(user,"User is created")
 
@@ -24,5 +24,7 @@ class MyTestCase(unittest.TestCase):
         print Util.getLatestSnapShot("example","127.0.0.1")
     def test_getservers(self):
         print Util.getServers("example")
+    def test_checkalerts(self):
+        print Util.checkAlerts("example","127.0.0.1")
 if __name__ == '__main__':
     unittest.main()
