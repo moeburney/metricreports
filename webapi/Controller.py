@@ -113,15 +113,83 @@ def handler():
 def handler(ip):
     return json.dumps(Util.getLatestSnapShot(Util.getSubDomain(bottle.request),ip),default=json_util.default)
 
+
+@get('/servers/:ip/disks')
+@auth()
+def handler(ip):
+    return json.dumps(Util.getLatestDiskOverView(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+
+
 @get('/servers/:ip/alerts')
 @bottle.view('new_alert')
 @auth()
 def handler(ip):
+    if bottle.request.get_header("Accept") == "application/json":
+        return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
     return dict()
+
+
+@get('/servers/:ip/diskalert')
+@bottle.view('new_diskalert')
+@auth()
+def handler(ip):
+    if bottle.request.get_header("Accept") == "application/json":
+        return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+    return dict()
+@get('/servers/:ip/processalert')
+@bottle.view('new_processalert')
+@auth()
+def handler(ip):
+    if bottle.request.get_header("Accept") == "application/json":
+        return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+    return dict()
+
+@get('/servers/:ip/ramalert')
+@bottle.view('new_ramalert')
+@auth()
+def handler(ip):
+    if bottle.request.get_header("Accept") == "application/json":
+        return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+    return dict()
+
+@get('/servers/:ip/loadavgalert')
+@bottle.view('new_loadavgalert')
+@auth()
+def handler(ip):
+    if bottle.request.get_header("Accept") == "application/json":
+        return json.dumps(Util.getAlertsForIp(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+    return dict()
+
+
+
+@post('/servers/:ip/diskalert')
+@auth()
+def handler(ip):
+    return json.dumps(Util.createDiskAlert(Util.getSubDomain(bottle.request),ip,bottle.request.POST),default=json_util.default)
+
+@post('/servers/:ip/processalert')
+@auth()
+def handler(ip):
+    return json.dumps(Util.createProcessAlert(Util.getSubDomain(bottle.request),ip,bottle.request.POST),default=json_util.default)
+
+@post('/servers/:ip/ramalert')
+@auth()
+def handler(ip):
+    return json.dumps(Util.createRamAlert(Util.getSubDomain(bottle.request),ip,bottle.request.POST),default=json_util.default)
+
+@post('/servers/:ip/loadavgalert')
+@auth()
+def handler(ip):
+    return json.dumps(Util.createLoadAvgAlert(Util.getSubDomain(bottle.request),ip,bottle.request.POST),default=json_util.default)
+
+
 @get('/servers/:ip/meta')
 @auth()
 def handler(ip):
     return json.dumps(Util.getServerMeta(Util.getSubDomain(bottle.request),ip),default=json_util.default)
+
+
+
 @get('/test')
 @auth()
 def handler():

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+</head>
+<body>
+<h2>Alert if Process does not exist</h2>
+<form action="processalert" method="POST">
+    <input id="opt"  type="checkbox" name="opt" value="nt_exts">Complete name</input><br/>
+    <select name="op1" required>
+        <option value="disk1">process1</option>
+        <option value="disk2">process2</option>
+    </select>
+    <br/>
+    <select name="ase" multiple required>
+        <option value="email1">admin@admin.com</option>
+        <option value="email2">user@admin.com</option>
+    </select>
+<br/>
+    <input type="submit" value="Create Alert"/>
+
+</form>
+<script>
+$(function(){
+
+
+})
+</script>
+</body>
+</html>

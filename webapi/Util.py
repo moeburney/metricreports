@@ -169,6 +169,12 @@ def getLatestSnapShot(account,ip):
     return getLastXSnapShot(account,ip,1).next()
 
 
+def getLatestDiskOverView(account,ip):
+    return getLastXDiskOverView(account,ip,1).next()
+def getLastXDiskOverView(account,ip,count):
+    db = getdb(account)
+    dataColl = db[keys.DATA_PREFIX+ip.replace(".","")]
+    return dataColl.find(fields={keys.SERVER_DISK_USAGE:1}).sort(keys.TIMESTAMP,pymongo.DESCENDING).limit(count)
 
 
 def checkDiskAlert(alert):
@@ -228,7 +234,7 @@ def checkProcessAlert(alert):
     plist = []
     for process in latestSnapShot[keys.PROCESSES]:
         plist.append(process[10])
-    if operator == keys.OPERATOR_EXISTS:
+    if operator == keys.OPERATOR_NOT_EXISTS:
         if ProcessName not in plist:
             return True,"Alert, Process '%s' does not exist" %ProcessName
     if operator == keys.OPERATOR_PARTIAL_MATCH:
@@ -282,7 +288,7 @@ def checkLoadAvgAlert(alert):
     operator = alert[keys.ALERT_OPERATOR]
     option = alert[keys.ALERT_MAJOR_OPTION] # enter minutes till load avg is the rightoperand
     rightoperand = alert[keys.ALERT_SEC_OPERAND]
-    lastfewSnapShots = getLastXSnapShots(account,ip,option)
+    lastfewSnapShots = getLastXSnapShot(account,ip,option)
     loadlist = []
     for snapshot in lastfewSnapShots:
         loadlist.append(float(snapshot[keys.LOADAVG]))
@@ -364,3 +370,31 @@ def getServerMeta(account,ip):
     meta = db[keys.META_PREFIX+ip.replace(".","")]
 
     return meta.find_one({keys.SERVER_PUBLIC_IP:ip})
+
+def createDiskAlert(account,ip,params):
+    alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAIN_OPERAND:params[keys.ALERT_MAIN_OPERAND]}
+    alert[keys.ALERT_MAJOR_OPTION] = params[keys.ALERT_MAJOR_OPTION]
+    alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
+    alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
+    alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+def createProcessAlert(account,ip,params):
+    alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAIN_OPERAND:params[keys.ALERT_MAIN_OPERAND]}
+    alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
+    alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+def createRamAlert(account,ip,params):
+    alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAJOR_OPTION:params[keys.ALERT_MAJOR_OPTION]}
+    alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
+    alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
+    alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}
+def createLoadAvgAlert(account,ip,params):
+    alert = {keys.ALERT_FOR_IP:ip,keys.ALERT_FOR_ACCOUNT:account,keys.ALERT_MAJOR_OPTION:params[keys.ALERT_MAJOR_OPTION]}
+    alert[keys.ALERT_OPERATOR] = params[keys.ALERT_OPERATOR]
+    alert[keys.ALERT_SEC_OPERAND] = params[keys.ALERT_SEC_OPERAND]
+    alert[keys.ALERT_SEND_EMAIL] = params.getall(keys.ALERT_SEND_EMAIL)
+
+    return {keys.RESULT_STR:keys.RESULT_SUCCESS,"alert":alert}

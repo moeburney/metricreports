@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+</head>
+<body>
+<h3>Load Average</h3>
+<form action="loadavgalert" method="POST">
+    <select name="opt" required>
+        <option value="gt">Greater than</option>
+        <option value="eq">Equals</option>
+        <option value="lt">Less than</option>
+    </select>
+    <br/>
+    <input type="number" name="op2" required/>
+    <br/>
+    <label for="time">For minutes: </label><input id="time" type="number" name="mopt"/>
+
+    <br/>
+    <select name="ase" multiple required>
+        <option value="email1">admin@admin.com</option>
+        <option value="email2">user@admin.com</option>
+    </select>
+    <br/>
+    <input type="submit" value="Create Alert"/>
+
+</form>
+
+</body>
+</html>

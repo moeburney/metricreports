@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+</head>
+<body>
+<form action="diskalert" method="POST">
+    <select name="op1" required>
+        <option value="disk1">Disk1</option>
+        <option value="disk2">Disk2</option>
+    </select>
+    <br/>
+    <select name="mopt" required>
+        <option value="used">Used</option>
+        <option value="free">Free</option>
+        <option value="pused">Percentage Used</option>
+    </select>
+    <br/>
+    <select name="opt" required>
+        <option value="gt">Greater than</option>
+        <option value="eq">Equals</option>
+        <option value="lt">Less than</option>
+    </select>
+    <br/>
+    <input type="number" name="op2" required/>
+    <br/>
+    <select name="ase" multiple required>
+        <option value="email1">admin@admin.com</option>
+        <option value="email2">user@admin.com</option>
+    </select>
+    <br/>
+    <input type="submit" value="Create Alert"/>
+
+</form>
+</body>
+</html>
